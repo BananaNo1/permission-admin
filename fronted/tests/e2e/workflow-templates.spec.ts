@@ -9,7 +9,9 @@ async function openTemplates(page: Page, edit: boolean) {
     id: '9', username: 'operator', deptId: '1', admin: false, permissions: ['workflow:template:list'],
   } }))
   await page.route('**/api/auth/menus', route => route.fulfill({ json: [{
-    id: '90', parentId: null, name: '流程模板', type: 'PAGE', visible: true, path: '/workflow/templates',
+    id: '89', parentId: null, name: '流程管理', type: 'DIRECTORY', visible: true,
+  }, {
+    id: '90', parentId: '89', name: '流程模板', type: 'PAGE', visible: true, path: '/workflow/templates',
     routeName: 'WorkflowTemplates', componentKey: 'workflow/templates', permissionCode: 'workflow:template:list',
   }] }))
   await page.route('**/api/auth/csrf', route => route.fulfill({ json: { token: 'test', headerName: 'X-CSRF-TOKEN' } }))
@@ -21,7 +23,10 @@ async function openTemplates(page: Page, edit: boolean) {
     Object.assign(draft, route.request().postDataJSON(), { revision: 8 })
     return route.fulfill({ status: 204 })
   })
-  await page.route('**' + path + '/order/publish', route => route.fulfill({ status: 204 }))
+  await page.route('**' + path + '/order/publish', route => {
+    Object.assign(draft, { revision: 8, publishedVersion: 2, dirty: false })
+    return route.fulfill({ status: 204 })
+  })
   await page.goto('/workflow/templates')
 }
 
@@ -36,6 +41,7 @@ test('business editor can save an existing draft with its current revision', asy
   const request = page.waitForRequest(req => req.method() === 'PUT' && req.url().endsWith(path + '/order'))
   await save.click()
   expect((await request).postDataJSON()).toMatchObject({ name: '采购审批修订', revision: 7 })
+  await expect(page.getByRole('button', { name: /采购审批修订/ })).toBeVisible()
 })
 
 test('business publisher can publish the selected revision without editing', async ({ page }) => {
@@ -46,4 +52,6 @@ test('business publisher can publish the selected revision without editing', asy
   const request = page.waitForRequest(req => req.method() === 'POST' && req.url().endsWith(path + '/order/publish'))
   await publish.click()
   expect((await request).postDataJSON()).toEqual({ revision: 7 })
+  await expect(page.getByText(/已发布版本 2/)).toBeVisible()
+  await expect(publish).toBeDisabled()
 })
