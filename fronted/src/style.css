@@ -1,0 +1,316 @@
+:root {
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    color: #172846;
+    background: #f0f4f9;
+}
+
+body {
+    margin: 0;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+h1 {
+    font-size: 28px;
+    font-weight: 650;
+    margin: 0 0 22px;
+}
+
+.shell {
+    min-height: 100vh;
+}
+
+.brand {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 17px;
+    border-bottom: 1px solid rgb(255 255 255 / 12%);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.brand-collapsed {
+    padding-inline: 14px;
+}
+
+.brand-mark,
+.workspace-avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: #245bdf;
+    color: #fff;
+}
+
+.shell nav {
+    padding: 10px 5px;
+}
+
+.workspace-layout {
+    min-width: 0;
+}
+
+.topbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 28px;
+}
+
+.workspace-location {
+    color: #23395e;
+    font-size: 15px;
+    font-weight: 650;
+}
+
+.workspace-account,
+.workspace-identity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.workspace-account {
+    gap: 16px;
+}
+
+.workspace-identity {
+    color: #23395e;
+    font-weight: 600;
+}
+
+.workspace-identity > span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workspace-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e8f0ff;
+    color: #1e40af;
+}
+
+.content {
+    padding: 28px;
+    background: #f0f4f9;
+    min-height: calc(100vh - 64px);
+}
+
+.workspace-tabs + .content {
+    min-height: calc(100vh - 107px);
+}
+
+.workspace-home {
+    max-width: 1160px;
+    margin-inline: auto;
+    display: grid;
+    gap: 18px;
+}
+
+.workspace-heading {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.workspace-heading h1 {
+    margin: 0;
+    font-size: 26px;
+}
+
+.workspace-groups {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+    align-items: start;
+    gap: 16px;
+}
+
+.workspace-group {
+    padding: 16px 18px 4px;
+    border: 1px solid #dce5f2;
+    border-radius: 12px;
+    background: #fff;
+}
+
+.workspace-group h2 {
+    margin: 0 0 10px;
+    font-size: 16px;
+}
+
+.workspace-links {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.workspace-links li {
+    border-top: 1px solid #e5ebf4;
+}
+
+.workspace-links a {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    column-gap: 12px;
+    row-gap: 4px;
+    min-height: 44px;
+    padding: 11px 4px;
+    color: #1e40af;
+    text-decoration: none;
+}
+
+.workspace-links a:hover,
+.workspace-links a:focus-visible {
+    background: #f3f7ff;
+}
+
+.workspace-links a:focus-visible {
+    outline: 2px solid #245bdf;
+    outline-offset: -2px;
+}
+
+.workspace-links small {
+    color: #495d78;
+    font-size: 13px;
+}
+
+.management-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 0 18px;
+}
+
+.management-heading::before {
+    content: "";
+    width: 4px;
+    height: 24px;
+    border-radius: 4px;
+    background: #245bdf;
+}
+
+.content > .n-card {
+    border-color: #dce5f2;
+    box-shadow: 0 2px 8px rgb(23 40 70 / 6%);
+}
+
+.management-card .toolbar {
+    padding: 12px 14px;
+    border: 1px solid #e2eaf5;
+    border-radius: 10px;
+    background: #f7faff;
+}
+
+@media (max-width: 560px) {
+    .topbar {
+        padding-inline: 12px;
+    }
+
+    .workspace-location,
+    .workspace-avatar {
+        display: none;
+    }
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.pagination {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.global-alert {
+    position: fixed;
+    z-index: 3000;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(640px, 90vw);
+}
+
+.login-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    background: #f0f4f9;
+}
+
+.login-intro {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(32px, 8vw, 128px);
+    color: #fff;
+    background: linear-gradient(145deg, #142a52, #173f94);
+}
+
+.login-intro h1 {
+    margin-bottom: 12px;
+    font-size: clamp(32px, 4vw, 56px);
+    line-height: 1.2;
+}
+
+.login-intro p {
+    margin: 0;
+    color: #dce9ff;
+    font-size: 16px;
+    line-height: 1.6;
+}
+
+.login-shell > .login-card {
+    place-self: center;
+    width: min(420px, calc(100% - 48px));
+    box-shadow: 0 16px 44px rgb(23 40 70 / 10%);
+}
+
+.status-page {
+    padding: 80px 24px;
+}
+
+@media (max-width: 760px) {
+    .login-shell {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+    }
+
+    .login-intro {
+        padding: 40px 24px;
+    }
+
+    .login-shell > .login-card {
+        align-self: start;
+        margin: 32px 0;
+    }
+
+    .content {
+        padding: 16px;
+    }
+
+    .toolbar {
+        flex-wrap: wrap;
+    }
+}

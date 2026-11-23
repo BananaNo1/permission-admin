@@ -1,0 +1,80 @@
+.assignment-subject {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin: 0 0 14px;
+    border-radius: 8px;
+    background: #f0f4f9;
+    overflow-wrap: anywhere;
+}
+
+.assignment-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    gap: 14px;
+}
+
+.assignment-panel {
+    min-width: 0;
+    padding: 12px;
+    border: 1px solid #dce5f2;
+    border-radius: 10px;
+}
+
+.assignment-panel h3 {
+    margin: 0 0 10px;
+    font-size: 15px;
+}
+
+.assignment-controls {
+    margin: 10px 0;
+}
+
+.assignment-hint {
+    margin: 8px 0;
+    color: #495d78;
+    font-size: 13px;
+}
+
+.assignment-list,
+.assignment-review {
+    max-height: min(38vh, 380px);
+    overflow: auto;
+    overflow-wrap: anywhere;
+    overscroll-behavior: contain;
+}
+
+.assignment-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #e5ebf4;
+}
+
+.assignment-code {
+    display: block;
+    color: #495d78;
+    font-size: 12px;
+}
+
+.assignment-selected {
+    margin: 12px 0 0;
+}
+
+.assignment-selected summary {
+    cursor: pointer;
+}
+
+.assignment-footer {
+    margin-top: 16px;
+}
+
+@media (max-width: 680px) {
+    .assignment-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
