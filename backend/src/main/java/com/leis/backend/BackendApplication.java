@@ -9,7 +9,7 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 
 @SpringBootApplication
-@ComponentScan(basePackages = {"com.leis.backend", "com.leis.permission", "com.leis.common"},
+@ComponentScan(basePackages = {"com.leis.backend", "com.leis.permission", "com.leis.common", "com.leis.workflow"},
         excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
                 classes = PermissionApplication.class))
 @MapperScan(basePackages = "com.leis.permission", annotationClass = Mapper.class)

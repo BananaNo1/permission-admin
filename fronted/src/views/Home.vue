@@ -7,6 +7,7 @@ import { useAuth } from '@/stores/auth'
 const auth = useAuth()
 const router = useRouter()
 const descriptions: Record<string, string> = {
+  'workflow/templates': '配置审批节点、管理业务授权和发布流程',
   'system/user': '账号、状态与角色分配',
   'system/role': '角色与菜单授权',
   'system/dept': '部门与组织层级',

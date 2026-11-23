@@ -19,7 +19,7 @@ const visible = ref(props.menu?.visible ?? true)
 const status = ref(props.menu?.status || 'ENABLED')
 const busy = ref(false)
 const types = [{label: '目录', value: 'DIRECTORY'}, {label: '页面', value: 'PAGE'}, {label: '按钮', value: 'BUTTON'}]
-const components = ['system/user', 'system/role', 'system/dept', 'system/menu', 'audit/login', 'audit/operation'].map(value => ({
+const components = ['system/user', 'system/role', 'system/dept', 'system/menu', 'audit/login', 'audit/operation', 'workflow/templates'].map(value => ({
   label: value,
   value
 }))

@@ -26,6 +26,9 @@ spring:
       redis:
         namespace: permission-admin:session
 
+flowable:
+  database-schema-update: "${FLOWABLE_DATABASE_SCHEMA_UPDATE:true}"
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

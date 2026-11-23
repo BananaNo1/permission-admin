@@ -156,10 +156,10 @@ public class MenuService {
         }
         if ("PAGE".equals(row.getType())) {
             if (row.getComponentKey() == null || !Set.of("system/user", "system/role", "system/dept",
-                    "system/menu", "audit/login", "audit/operation").contains(row.getComponentKey())) {
+                    "system/menu", "audit/login", "audit/operation", "workflow/templates").contains(row.getComponentKey())) {
                 throw new BusinessException(400, "页面组件键无效");
             }
-            if (row.getPath() == null || !row.getPath().matches("/(system|audit)/[a-z-]+")
+            if (row.getPath() == null || !row.getPath().matches("/(system|audit|workflow)/[a-z-]+")
                     || row.getRouteName() == null || !row.getRouteName().matches("[A-Za-z][A-Za-z0-9]{1,99}")) {
                 throw new BusinessException(400, "路由路径或名称无效");
             }

@@ -33,6 +33,7 @@ const router = createRouter({
 })
 
 const pageComponents: Record<string, () => Promise<{ default: Component }>> = {
+    'workflow/templates': () => import('@/views/workflow/TemplatePage.vue'),
     'system/user': () => import('@/views/user/UserPage.vue'),
     'system/role': () => import('@/views/role/RolePage.vue'),
     'system/dept': () => import('@/views/dept/DeptPage.vue'),
@@ -69,7 +70,7 @@ router.beforeEach(async to => {
         for (const menu of auth.menus) {
             const component = pageComponents[menu.componentKey || '']
             if (menu.type !== 'PAGE' || !component || !menu.path || !menu.routeName) continue
-            if (menu.componentKey !== 'system/user' && !auth.me?.admin) continue
+            if (!['system/user','workflow/templates'].includes(menu.componentKey ?? '') && !auth.me?.admin) continue
             const route: RouteRecordRaw = {
                 path: menu.path, name: `menu-${menu.id}`,
                 component,
@@ -78,7 +79,7 @@ router.beforeEach(async to => {
         }
         return {path: to.path, query: to.query, hash: to.hash, replace: true}
     }
-    if (to.name === 'not-found' && /^\/(system|audit)\//.test(to.path)) return '/403'
+    if (to.name === 'not-found' && /^\/(system|audit|workflow)\//.test(to.path)) return '/403'
     return true
 })
 

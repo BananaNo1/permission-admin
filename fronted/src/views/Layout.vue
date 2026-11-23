@@ -15,7 +15,7 @@ function tree(parentId: string | null): MenuOption[] {
   return auth.menus.filter(row => row.parentId === parentId && row.visible && row.type !== 'BUTTON')
       .flatMap((row: Menu) => {
         if (row.type === 'PAGE') {
-          if (!auth.me?.admin && row.componentKey !== 'system/user') return []
+          if (!auth.me?.admin && !['system/user','workflow/templates'].includes(row.componentKey ?? '')) return []
           return [{ label: row.name, key: row.path || row.id }]
         }
         const children = tree(row.id)
