@@ -15,12 +15,12 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/permission_admin}
     username: ${DB_USERNAME:permission_admin}
-    password: ${DB_PASSWORD}
+    password: ${DB_PASSWORD:123456}
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}
   session:
     data:
       redis:
@@ -33,5 +33,5 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 bootstrap:
-  username: ${BOOTSTRAP_ADMIN_USERNAME:}
-  password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+  username: ${BOOTSTRAP_ADMIN_USERNAME:admin}
+  password: ${BOOTSTRAP_ADMIN_PASSWORD:123456}

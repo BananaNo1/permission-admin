@@ -9,6 +9,8 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "bpmn-js": "18.31.0",
+    "bpmn-moddle": "10.3.1",
     "naive-ui": "2.45.3",
     "pinia": "3.0.4",
     "vue": "3.5.45",

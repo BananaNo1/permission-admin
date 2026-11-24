@@ -17,11 +17,17 @@ import java.util.UUID;
 
 @Service
 public class TemplateService {
-    public record Draft(String code, String name, int revision, int publishedVersion, boolean dirty, List<TemplateCompiler.Step> steps) {}
+    public record Draft(String code, String name, int revision, int publishedVersion, boolean dirty,
+                        List<TemplateCompiler.Step> steps, DiagramLayout diagramLayout) {}
     public record Save(@NotBlank @Size(max=100) String name, @PositiveOrZero int revision,
-                       @NotEmpty @Size(max=30) List<TemplateCompiler.Step> steps) {}
+                       @NotEmpty @Size(max=30) List<TemplateCompiler.Step> steps, DiagramLayout diagramLayout) {
+        public Save(String name, int revision, List<TemplateCompiler.Step> steps) {
+            this(name, revision, steps, null);
+        }
+    }
     public record Publish(@Positive int revision) {}
-    public record Release(String code, String name, int version, String definitionId, List<TemplateCompiler.Step> steps) {}
+    public record Release(String code, String name, int version, String definitionId,
+                          List<TemplateCompiler.Step> steps, DiagramLayout diagramLayout) {}
     private final JdbcTemplate db;
     private final ObjectMapper json;
     private final RepositoryService repository;
@@ -43,11 +49,16 @@ public class TemplateService {
         return Arrays.asList(json.readValue(raw, TemplateCompiler.Step[].class));
     }
 
+    private DiagramLayout layout(String raw) {
+        return raw == null ? null : json.readValue(raw, DiagramLayout.class);
+    }
+
     public List<Draft> drafts(String business) {
         access.require(business, "VIEW_DRAFT");
         return db.query("select * from wf_template where business=? order by code", (rs,i) ->
                 new Draft(rs.getString("code"), rs.getString("name"), rs.getInt("revision"),
-                        rs.getInt("published_version"), rs.getInt("revision") != rs.getInt("published_revision"), steps(rs.getString("steps"))), business);
+                        rs.getInt("published_version"), rs.getInt("revision") != rs.getInt("published_revision"),
+                        steps(rs.getString("steps")), layout(rs.getString("diagram_layout"))), business);
     }
 
     @Transactional
@@ -57,14 +68,19 @@ public class TemplateService {
         String key = "wfTpl" + UUID.randomUUID().toString().replace("-", "");
         TemplateCompiler.compile(key, request.name(), request.steps());
         String data = json.writeValueAsString(request.steps());
+        String diagram = null;
+        if (request.diagramLayout() != null) {
+            request.diagramLayout().validate(request.steps().size());
+            diagram = json.writeValueAsString(request.diagramLayout());
+        }
         long editor = actor.get().id();
         if (request.revision() == 0) {
-            db.update("insert into wf_template(business,code,engine_key,name,steps,revision,edited_by) values(?,?,?,?,?,1,?)",
-                    business,code,key,request.name(),data,editor);
+            db.update("insert into wf_template(business,code,engine_key,name,steps,diagram_layout,revision,edited_by) values(?,?,?,?,?,?,1,?)",
+                    business,code,key,request.name(),data,diagram,editor);
         } else if (db.update("""
-                update wf_template set name=?, steps=?, revision=revision+1, edited_by=?, edited_at=current_timestamp
+                update wf_template set name=?, steps=?, diagram_layout=?, revision=revision+1, edited_by=?, edited_at=current_timestamp
                 where business=? and code=? and revision=?
-                """,request.name(),data,editor,business,code,request.revision()) != 1) {
+                """,request.name(),data,diagram,editor,business,code,request.revision()) != 1) {
             throw new BusinessException(409,"模板已修改，请刷新");
         }
     }
@@ -89,8 +105,8 @@ public class TemplateService {
                 .addBpmnModel(key + ".bpmn20.xml", TemplateCompiler.compile(key,name,nodes)).deploy();
         var definition = repository.createProcessDefinitionQuery().deploymentId(deployment.getId()).singleResult();
         int version = ((Number)draft.get("published_version")).intValue() + 1;
-        db.update("insert into wf_template_release(business,code,version,name,steps,definition_id,published_by) values(?,?,?,?,?,?,?)",
-                business,code,version,name,data,definition.getId(),actor.get().id());
+        db.update("insert into wf_template_release(business,code,version,name,steps,diagram_layout,definition_id,published_by) values(?,?,?,?,?,?,?,?)",
+                business,code,version,name,data,draft.get("diagram_layout"),definition.getId(),actor.get().id());
         db.update("update wf_template set published_version=?, published_revision=revision+1, revision=revision+1 where business=? and code=?",version,business,code);
     }
 
@@ -100,7 +116,7 @@ public class TemplateService {
                 select r.* from wf_template t join wf_template_release r on t.business=r.business and t.code=r.code
                     and t.published_version=r.version where t.business=? and t.code=?
                 """,(rs,i) -> new Release(rs.getString("code"),rs.getString("name"),rs.getInt("version"),
-                rs.getString("definition_id"),steps(rs.getString("steps"))),business,code);
+                rs.getString("definition_id"),steps(rs.getString("steps")),layout(rs.getString("diagram_layout"))),business,code);
         if (rows.isEmpty()) throw new BusinessException(404,"已发布的模板不存在");
         return rows.getFirst();
     }
@@ -111,7 +127,7 @@ public class TemplateService {
                 select r.* from wf_template t join wf_template_release r on t.business=r.business and t.code=r.code
                     and t.published_version=r.version where t.business=? order by r.code
                 """,(rs,i) -> new Release(rs.getString("code"),rs.getString("name"),rs.getInt("version"),
-                rs.getString("definition_id"),steps(rs.getString("steps"))),business);
+                rs.getString("definition_id"),steps(rs.getString("steps")),layout(rs.getString("diagram_layout"))),business);
     }
 }
 

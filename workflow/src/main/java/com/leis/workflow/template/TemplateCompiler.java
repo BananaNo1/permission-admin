@@ -11,8 +11,15 @@ import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.ExecutionListener;
 
 public final class TemplateCompiler {
+    public record Position(int x, int y) {}
+
     public record Step(String name, ApprovalService.Mode mode, List<Long> approverIds,
-                       BigDecimal minAmount, String returnTo) {}
+                       BigDecimal minAmount, String returnTo, Position position) {
+        public Step(String name, ApprovalService.Mode mode, List<Long> approverIds,
+                    BigDecimal minAmount, String returnTo) {
+            this(name, mode, approverIds, minAmount, returnTo, null);
+        }
+    }
 
     public static BpmnModel compile(String key, String name, List<Step> steps) {
         require(key != null && key.matches("[A-Za-z_][A-Za-z0-9_]{0,127}"), "流程标识无效");
@@ -92,6 +99,9 @@ public final class TemplateCompiler {
 
     private static void validate(Step s, int index) {
         require(s != null && validName(s.name()) && s.mode() != null, "审批节点名称或模式无效");
+        Position position = s.position();
+        require(position == null || (position.x() >= -8000 && position.x() <= 8000
+                && position.y() >= -4000 && position.y() <= 4000), "审批节点画布位置无效");
         boolean single = s.mode() == ApprovalService.Mode.SINGLE;
         List<Long> ids = s.approverIds();
         require(ids != null && ids.size() >= (single ? 1 : 2) && ids.size() <= (single ? 1 : 50)

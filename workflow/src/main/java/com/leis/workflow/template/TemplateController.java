@@ -8,11 +8,23 @@ import java.util.List;
 @RequestMapping("/api/workflow/businesses/{business}/templates")
 public class TemplateController {
     private final TemplateService templates;
-    public TemplateController(TemplateService templates) { this.templates = templates; }
+    private final ReviewerDirectory reviewers;
+
+    public TemplateController(TemplateService templates, ReviewerDirectory reviewers) {
+        this.templates = templates;
+        this.reviewers = reviewers;
+    }
 
     @GetMapping
     public List<TemplateService.Draft> drafts(@PathVariable String business) {
         return templates.drafts(business);
+    }
+
+    @GetMapping("/reviewers")
+    public List<ReviewerDirectory.Reviewer> reviewers(@PathVariable String business,
+                                                       @RequestParam(defaultValue = "") String keyword,
+                                                       @RequestParam(required = false) List<Long> ids) {
+        return reviewers.find(business, keyword, ids);
     }
 
     @PutMapping("/{code}")

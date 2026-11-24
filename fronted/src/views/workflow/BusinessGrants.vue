@@ -7,10 +7,11 @@ import { useAuth } from '@/stores/auth'
 type Rights = { edit: boolean; publish: boolean; start: boolean }
 type Grant = Rights & { userId: string | number }
 const props = defineProps<{ business: string }>()
-const emit = defineEmits<{ changed: [] }>()
+const emit = defineEmits<{ changed: [code: string] }>()
 const auth = useAuth()
 const admin = computed(() => !!auth.me?.admin)
 const code = ref('')
+const businessCodeInput = ref<{ focus: () => void } | null>(null)
 const name = ref('')
 const userId = ref('')
 const rights = reactive<Rights>({ edit: false, publish: false, start: false })
@@ -22,6 +23,8 @@ const failed = ref(false)
 const root = '/workflow/businesses'
 const grantsPath = (business: string) => root + '/' + encodeURIComponent(business) + '/grants'
 let generation = 0
+
+defineExpose({ focusBusinessCode: () => businessCodeInput.value?.focus() })
 
 function report(error: unknown) {
     failed.value = true
@@ -53,14 +56,15 @@ watch([() => props.business, admin], () => {
 
 async function create() {
     if (!admin.value || busy.value) return
+    const businessCode = code.value.trim()
     busy.value = true
     try {
-        await api(root, 'POST', { code: code.value.trim(), name: name.value.trim() })
+        await api(root, 'POST', { code: businessCode, name: name.value.trim() })
         code.value = ''
         name.value = ''
         failed.value = false
         message.value = '业务已创建'
-        emit('changed')
+        emit('changed', businessCode)
     } catch (error) { report(error) }
     finally { busy.value = false }
 }
@@ -91,7 +95,7 @@ async function save(id: string, flags: Rights) {
   <NCard v-if="admin" title="业务授权管理" size="small">
     <NSpace vertical>
       <NSpace align="center">
-        <NInput v-model:value="code" placeholder="业务编码" aria-label="业务编码" :maxlength="64" />
+        <NInput ref="businessCodeInput" v-model:value="code" placeholder="业务编码" aria-label="业务编码" :maxlength="64" />
         <NInput v-model:value="name" placeholder="业务名称" aria-label="业务名称" :maxlength="128" />
         <NButton :disabled="busy || !/^[a-zA-Z0-9_-]{1,64}$/.test(code.trim()) || !name.trim()" @click="create">创建业务</NButton>
       </NSpace>

@@ -7,6 +7,8 @@ import com.leis.permission.auth.CurrentActor;
 import com.leis.permission.user.entity.User;
 import com.leis.workflow.access.BusinessAccess;
 import com.leis.workflow.execution.TemplateExecutionService;
+import com.leis.workflow.template.DiagramLayout;
+import com.leis.workflow.template.TemplateCompiler.Position;
 import com.leis.workflow.template.TemplateCompiler.Step;
 import com.leis.workflow.template.TemplateService;
 import java.math.BigDecimal;
@@ -40,7 +42,7 @@ class TemplateLifecycleTest {
 
     @Test
     @Sql(statements = {"create table wf_business(code varchar(64) primary key)", "insert into wf_business values('purchase')"})
-    @Sql("/db/migration/V5__workflow_templates.sql")
+    @Sql({"/db/migration/V5__workflow_templates.sql", "/db/migration/V6__workflow_diagram_layout.sql"})
     void runningApplicationsUseTheirPublishedDefinition() {
         when(actor.get()).thenReturn(new ActorSnapshot(1L, "applicant", null, false, Set.of(), false, Set.of(), true));
         var enabled = new User();
@@ -48,6 +50,7 @@ class TemplateLifecycleTest {
         when(accounts.findById(2L)).thenReturn(enabled);
         when(accounts.findById(3L)).thenReturn(enabled);
         save(0, 2L);
+        assertThat(templates.drafts("purchase").getFirst().diagramLayout()).isNull();
         int revision = revision();
         templates.publish("purchase", "order", revision);
         assertConflict(revision);
@@ -56,8 +59,13 @@ class TemplateLifecycleTest {
         assertThatThrownBy(() -> start("first")).isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
         assertThat(approvals.applications(1L,1,20).total()).isEqualTo(1);
         save(revision(), 3L);
+        assertThat(templates.drafts("purchase").getFirst().steps().getFirst().position())
+                .isEqualTo(new Position(320, 160));
+        assertThat(templates.drafts("purchase").getFirst().diagramLayout()).isEqualTo(diagramLayout());
+        assertThat(templates.release("purchase", "order").diagramLayout()).isNull();
         assertConflict(revision);
         templates.publish("purchase", "order", revision());
+        assertThat(templates.release("purchase", "order").diagramLayout()).isEqualTo(diagramLayout());
         var updated = start("second");
         assertThat(original.version()).isEqualTo(1);
         assertThat(updated.version()).isEqualTo(2);
@@ -85,8 +93,23 @@ class TemplateLifecycleTest {
     }
 
     private void save(int revision, long reviewer) {
-        var step = new Step("审批", ApprovalService.Mode.SINGLE, List.of(reviewer), null, "APPLICANT");
-        templates.save("purchase", "order", new TemplateService.Save("采购审批", revision, List.of(step)));
+        var position = revision == 0 ? null : new Position(320, 160);
+        var step = new Step("审批", ApprovalService.Mode.SINGLE, List.of(reviewer), null, "APPLICANT", position);
+        if (revision == 0) {
+            templates.save("purchase", "order", new TemplateService.Save("采购审批", revision, List.of(step)));
+            return;
+        }
+        var invalid = new DiagramLayout(new Position(40, 155), new Position(540, 180), List.of());
+        assertThatThrownBy(() -> templates.save("purchase", "order",
+                new TemplateService.Save("采购审批", revision, List.of(step), invalid)))
+                .isInstanceOfSatisfying(BusinessException.class, e -> assertThat(e.getStatus()).isEqualTo(400));
+        templates.save("purchase", "order", new TemplateService.Save("采购审批", revision, List.of(step), diagramLayout()));
+    }
+
+    private DiagramLayout diagramLayout() {
+        return new DiagramLayout(new Position(40, 155), new Position(540, 180), List.of(
+                List.of(new Position(76, 173), new Position(120, 173), new Position(320, 197)),
+                List.of(new Position(450, 197), new Position(540, 198))));
     }
 
     private TemplateExecutionService.Started start(String key) {

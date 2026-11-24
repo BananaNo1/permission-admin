@@ -3,8 +3,8 @@ import { expect, test, type Page } from '@playwright/test'
 const path = '/api/workflow/businesses/buy/templates'
 const steps = [{ name: '主管审批', mode: 'SINGLE', approverIds: [2], minAmount: null, returnTo: 'APPLICANT' }]
 
-async function openTemplates(page: Page, edit: boolean) {
-  const draft = { code: 'order', name: '采购审批', revision: 7, publishedVersion: 1, dirty: true, steps }
+async function openTemplates(page: Page, edit: boolean, nodes = steps) {
+  const draft = { code: 'order', name: '采购审批', revision: 7, publishedVersion: 1, dirty: true, steps: nodes }
   await page.route('**/api/auth/me', route => route.fulfill({ json: {
     id: '9', username: 'operator', deptId: '1', admin: false, permissions: ['workflow:template:list'],
   } }))
@@ -15,6 +15,9 @@ async function openTemplates(page: Page, edit: boolean) {
     routeName: 'WorkflowTemplates', componentKey: 'workflow/templates', permissionCode: 'workflow:template:list',
   }] }))
   await page.route('**/api/auth/csrf', route => route.fulfill({ json: { token: 'test', headerName: 'X-CSRF-TOKEN' } }))
+  await page.route('**' + path + '/reviewers?*', route => route.fulfill({
+    json: [{ id: 2, name: '张三', username: 'zhangsan', enabled: true }],
+  }))
   await page.route('**/api/workflow/businesses', route => route.fulfill({ json: [
     { code: 'buy', name: '采购业务', edit, publish: !edit, start: false },
   ] }))
@@ -28,7 +31,98 @@ async function openTemplates(page: Page, edit: boolean) {
     return route.fulfill({ status: 204 })
   })
   await page.goto('/workflow/templates')
+  await page.getByRole('button', { name: edit ? '设计 采购审批' : '查看 采购审批' }).click()
 }
+
+test('template catalog and design workspace have separate navigation', async ({ page }) => {
+  await page.setViewportSize({ width: 1460, height: 960 })
+  await openTemplates(page, true)
+  await expect(page.getByRole('heading', { name: '采购审批' })).toBeVisible()
+  await expect(page.getByRole('region', { name: '业务模板' })).toHaveCount(0)
+  const canvas = page.getByRole('region', { name: 'BPMN 流程图' })
+  const inspector = page.getByRole('complementary', { name: '节点属性' })
+  await expect(canvas).toBeVisible()
+  await expect(inspector).toBeVisible()
+  const [drawing, controls] = await Promise.all([canvas.boundingBox(), inspector.boundingBox()])
+  expect(drawing!.x + drawing!.width).toBeLessThan(controls!.x)
+  await page.setViewportSize({ width: 760, height: 960 })
+  const [narrowDrawing, narrowControls] = await Promise.all([canvas.boundingBox(), inspector.boundingBox()])
+  expect(narrowDrawing!.y + narrowDrawing!.height).toBeLessThan(narrowControls!.y)
+  await page.getByRole('button', { name: /返回模板列表/ }).click()
+  await expect(page.getByRole('heading', { name: '流程模板', exact: true })).toBeVisible()
+  await expect(canvas).toHaveCount(0)
+  const search = page.getByRole('textbox', { name: '搜索模板' })
+  await search.fill('找不到的模板')
+  await expect(page.getByText('没有匹配的模板')).toBeVisible()
+  await search.fill('order')
+  await expect(page.getByRole('button', { name: '设计 采购审批' })).toBeVisible()
+})
+
+test('BPMN modeler saves and restores the path layout after dragging a task', async ({ page }) => {
+  const taskName = 'A&<B>"'
+  await openTemplates(page, true, [{ ...steps[0], name: taskName }, { ...steps[0], name: '财务审批' }])
+  const canvas = page.getByTestId('bpmn-modeler')
+  await expect(canvas.locator('.djs-palette')).toBeVisible()
+  await expect(canvas.getByText(taskName, { exact: true })).toBeVisible()
+  const task = canvas.locator('.djs-shape[data-element-id="Task_0"] .djs-hit').first()
+  await task.scrollIntoViewIfNeeded()
+  const box = await task.boundingBox()
+  if (!box) throw Error('BPMN task is outside the canvas')
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 30, box.y + box.height / 2 + 40, { steps: 5 })
+  await page.mouse.up()
+  const edge = canvas.locator('.djs-connection[data-element-id="Sequence_0"] .djs-visual path').first()
+  const pathAfterDrag = await edge.getAttribute('d')
+  const request = page.waitForRequest(req => req.method() === 'PUT' && req.url().endsWith(path + '/order'))
+  await page.getByRole('button', { name: '保存草稿' }).click()
+  const payload = (await request).postDataJSON()
+  expect(payload.steps).toMatchObject([
+    { name: taskName, position: { x: expect.any(Number), y: expect.any(Number) } },
+    { name: '财务审批' },
+  ])
+  expect(payload.diagramLayout).toMatchObject({
+    start: { x: 55, y: 144 },
+    end: { x: expect.any(Number), y: 144 },
+    waypoints: [expect.any(Array), expect.any(Array), expect.any(Array)],
+  })
+  await page.reload()
+  await expect(edge).toHaveAttribute('d', pathAfterDrag!)
+  await expect(canvas.getByText(taskName, { exact: true })).toBeVisible()
+})
+
+test('BPMN modeler blocks disconnected drafts and undo restores the path', async ({ page }) => {
+  await openTemplates(page, true)
+  const canvas = page.getByTestId('bpmn-modeler')
+  await canvas.locator('.djs-shape[data-element-id="End_approval"] .djs-hit').first().click()
+  await canvas.locator('.djs-context-pad.open [data-action="delete"]').click()
+  await expect(page.getByText(/请连接成一条从开始到结束/)).toBeVisible()
+  await expect(page.getByRole('button', { name: '保存草稿' })).toBeDisabled()
+  await page.getByRole('button', { name: '撤销' }).click()
+  await expect(page.getByRole('button', { name: '保存草稿' })).toBeEnabled()
+})
+
+test('canvas selection opens a newly placed task before it is connected', async ({ page }) => {
+  await openTemplates(page, true)
+  const canvas = page.getByTestId('bpmn-modeler')
+  await canvas.scrollIntoViewIfNeeded()
+  await canvas.locator('.djs-palette [data-action="create.task"]').click()
+  const box = await canvas.boundingBox()
+  if (!box) throw Error('BPMN canvas is outside the page')
+  await page.mouse.move(box.x + box.width * .7, box.y + box.height * .65)
+  await page.mouse.click(box.x + box.width * .7, box.y + box.height * .65)
+  const newTask = canvas.locator('.djs-shape[data-element-id^="Activity_"] .djs-hit').first()
+  await newTask.click()
+  const name = page.getByRole('textbox', { name: '节点名称' })
+  await expect(name).toHaveValue('')
+  await name.fill('财务复核')
+  await expect(canvas.getByText('财务复核', { exact: true })).toBeVisible()
+  await canvas.locator('.djs-shape[data-element-id="Task_0"] .djs-hit').first().click()
+  await expect(name).toHaveValue('主管审批')
+  await newTask.click()
+  await expect(name).toHaveValue('财务复核')
+  await expect(page.getByRole('button', { name: '保存草稿' })).toBeDisabled()
+})
 
 test('business editor can save an existing draft with its current revision', async ({ page }) => {
   await openTemplates(page, true)
@@ -41,7 +135,7 @@ test('business editor can save an existing draft with its current revision', asy
   const request = page.waitForRequest(req => req.method() === 'PUT' && req.url().endsWith(path + '/order'))
   await save.click()
   expect((await request).postDataJSON()).toMatchObject({ name: '采购审批修订', revision: 7 })
-  await expect(page.getByRole('button', { name: /采购审批修订/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '采购审批修订' })).toBeVisible()
 })
 
 test('business publisher can publish the selected revision without editing', async ({ page }) => {
@@ -54,4 +148,55 @@ test('business publisher can publish the selected revision without editing', asy
   expect((await request).postDataJSON()).toEqual({ revision: 7 })
   await expect(page.getByText(/已发布版本 2/)).toBeVisible()
   await expect(publish).toBeDisabled()
+  await expect(page.getByText('当前业务未授予编辑权限')).toBeVisible()
+  await expect(page.getByRole('button', { name: '新建模板' })).toHaveCount(0)
+})
+
+test('super administrator can create the first business and then its first template', async ({ page }) => {
+  let created = false
+  await page.route('**/api/auth/me', route => route.fulfill({
+    json: { id: '1', username: 'admin', deptId: '1', admin: true, permissions: [] },
+  }))
+  await page.route('**/api/auth/menus', route => route.fulfill({ json: [{
+    id: '90', parentId: null, name: '流程模板', type: 'PAGE', visible: true, path: '/workflow/templates',
+    routeName: 'WorkflowTemplates', componentKey: 'workflow/templates',
+  }] }))
+  await page.route('**/api/auth/csrf', route => route.fulfill({ json: { token: 'test', headerName: 'X-CSRF-TOKEN' } }))
+  await page.route('**/api/workflow/businesses', route => {
+    if (route.request().method() === 'POST') {
+      created = true
+      return route.fulfill({ status: 201 })
+    }
+    return route.fulfill({ json: created ? [{ code: 'buy', name: '采购业务', edit: true, publish: true }] : [] })
+  })
+  await page.route('**' + path, route => route.fulfill({ json: [] }))
+  await page.route('**' + path + '/reviewers?*', route => route.fulfill({
+    json: [{ id: 2, name: '张三', username: 'zhangsan', enabled: true }],
+  }))
+  await page.route('**' + path + '/order', route => route.fulfill({ status: 204 }))
+  await page.goto('/workflow/templates')
+  await expect(page.getByText('请先创建业务范围，再新建流程模板。')).toBeVisible()
+  const heading = page.locator('header').filter({ has: page.getByRole('heading', { name: '流程模板' }) })
+  await heading.getByRole('button', { name: '新建模板' }).click()
+  await expect(page.getByText('创建业务范围', { exact: true })).toBeVisible()
+  const businessCode = page.getByRole('textbox', { name: '业务编码' })
+  await expect(businessCode).toBeFocused()
+  await businessCode.fill('buy')
+  await page.getByRole('textbox', { name: '业务名称' }).fill('采购业务')
+  await page.getByRole('button', { name: '创建业务' }).click()
+  await page.getByRole('textbox', { name: '模板编码' }).fill('order')
+  await page.getByRole('textbox', { name: '模板名称' }).fill('采购审批')
+  await page.getByRole('textbox', { name: '节点名称' }).fill('主管审批')
+  const personSearch = page.getByTestId('reviewer-picker')
+  await personSearch.locator('.n-base-selection').click()
+  const input = personSearch.locator('input').filter({ visible: true })
+  const search = page.waitForRequest(req => new URL(req.url()).searchParams.get('keyword') === '张三')
+  await input.fill('张三')
+  await search
+  await page.getByText('张三（zhangsan）', { exact: true }).click()
+  await expect(personSearch.getByText('张三（zhangsan）', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /主管审批/ })).toHaveAttribute('aria-pressed', 'true')
+  const request = page.waitForRequest(req => req.method() === 'PUT' && req.url().endsWith(path + '/order'), { timeout: 5000 })
+  await page.getByRole('button', { name: '保存草稿' }).click()
+  expect((await request).postDataJSON()).toMatchObject({ name: '采购审批', revision: 0, steps })
 })
