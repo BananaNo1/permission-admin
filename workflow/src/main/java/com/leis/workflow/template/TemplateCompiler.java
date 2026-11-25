@@ -3,18 +3,33 @@ package com.leis.workflow.template;
 import com.leis.common.common.BusinessException;
 import com.leis.workflow.ApprovalService;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import org.flowable.bpmn.model.*;
 import org.flowable.bpmn.model.Process;
 import org.flowable.engine.delegate.DelegateExecution;
 import org.flowable.engine.delegate.ExecutionListener;
+import org.flowable.task.service.delegate.DelegateTask;
+import org.flowable.task.service.delegate.TaskListener;
 
 public final class TemplateCompiler {
     public record Position(int x, int y) {}
 
     public record Step(String name, ApprovalService.Mode mode, List<Long> approverIds,
-                       BigDecimal minAmount, String returnTo, Position position) {
+                       BigDecimal minAmount, String returnTo, Position position,
+                       String formKey, Boolean recordEntered, Boolean recordCompleted) {
+        public Step {
+            recordEntered = Boolean.TRUE.equals(recordEntered);
+            recordCompleted = Boolean.TRUE.equals(recordCompleted);
+        }
+
+
+        public Step(String name, ApprovalService.Mode mode, List<Long> approverIds,
+                    BigDecimal minAmount, String returnTo, Position position) {
+            this(name, mode, approverIds, minAmount, returnTo, position, null, false, false);
+        }
+
         public Step(String name, ApprovalService.Mode mode, List<Long> approverIds,
                     BigDecimal minAmount, String returnTo) {
             this(name, mode, approverIds, minAmount, returnTo, null);
@@ -51,6 +66,13 @@ public final class TemplateCompiler {
             UserTask task = node(p, review, new UserTask());
             task.setName(s.name());
             task.setAssignee("${reviewer}");
+            task.setFormKey(s.formKey());
+            if (s.recordEntered()) {
+                task.getExecutionListeners().add(listener("start", RecordNodeEntry.class));
+            }
+            if (s.recordCompleted()) {
+                task.getTaskListeners().add(listener("complete", RecordTaskCompletion.class));
+            }
             MultiInstanceLoopCharacteristics loop = new MultiInstanceLoopCharacteristics();
             loop.setInputDataItem("${stepUsers" + i + "}");
             loop.setElementVariable("reviewer");
@@ -91,6 +113,28 @@ public final class TemplateCompiler {
         return "${amount " + (include ? ">=" : "<") + " '" + step.minAmount().toPlainString() + "'}";
     }
 
+    private static FlowableListener listener(String event, Class<?> implementation) {
+        FlowableListener listener = new FlowableListener();
+        listener.setEvent(event);
+        listener.setImplementationType("class");
+        listener.setImplementation(implementation.getName());
+        return listener;
+    }
+
+    public static final class RecordNodeEntry implements ExecutionListener {
+        @Override
+        public void notify(DelegateExecution execution) {
+            execution.setVariable("wfEntered_" + execution.getCurrentActivityId(), Instant.now().toString());
+        }
+    }
+
+    public static final class RecordTaskCompletion implements TaskListener {
+        @Override
+        public void notify(DelegateTask task) {
+            task.setVariableLocal("wfCompletedAt", Instant.now().toString());
+        }
+    }
+
     public static final class ClearDecision implements ExecutionListener {
         public void notify(DelegateExecution execution) {
             execution.setVariable("decision", "");
@@ -99,6 +143,8 @@ public final class TemplateCompiler {
 
     private static void validate(Step s, int index) {
         require(s != null && validName(s.name()) && s.mode() != null, "审批节点名称或模式无效");
+        require(s.formKey() == null || ApprovalService.FORM_OPINION.equals(s.formKey())
+                || ApprovalService.FORM_REQUIRED_OPINION.equals(s.formKey()), "审批表单无效");
         Position position = s.position();
         require(position == null || (position.x() >= -8000 && position.x() <= 8000
                 && position.y() >= -4000 && position.y() <= 4000), "审批节点画布位置无效");
@@ -136,6 +182,6 @@ public final class TemplateCompiler {
         p.addFlowElement(flow);
         return flow.getId();
     }
-}
+}
 
 

@@ -1,17 +1,13 @@
 package com.leis.backend;
 
-import com.leis.permission.PermissionApplication;
 import org.apache.ibatis.annotations.Mapper;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
-import org.springframework.context.annotation.FilterType;
 
 @SpringBootApplication
-@ComponentScan(basePackages = {"com.leis.backend", "com.leis.permission", "com.leis.common", "com.leis.workflow"},
-        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
-                classes = PermissionApplication.class))
+@ComponentScan(basePackages = {"com.leis.backend", "com.leis.permission", "com.leis.common", "com.leis.workflow"})
 @MapperScan(basePackages = "com.leis.permission", annotationClass = Mapper.class)
 public class BackendApplication {
     /**

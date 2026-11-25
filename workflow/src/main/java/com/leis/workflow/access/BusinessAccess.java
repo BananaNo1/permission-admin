@@ -32,22 +32,31 @@ public class BusinessAccess {
         this.audit = audit;
     }
 
+    public enum Capability { VIEW_DRAFT, EDIT, PUBLISH, START }
+
+    /**
+     * 校验业务操作权限。保留业务行锁，使写操作与授权变更按顺序执行。
+     */
     @Transactional
-    public void require(String business, String capability) {
+    public void require(String business, Capability capability) {
         var user = actor.get();
-        String column = switch (capability) {
-            case "VIEW_DRAFT" -> "can_edit or g.can_publish";
-            case "EDIT" -> "can_edit";
-            case "PUBLISH" -> "can_publish";
-            case "START" -> "can_start";
-            default -> throw new IllegalArgumentException("Unknown capability");
-        };
-        if (db.query("select code from wf_business where code=? for update", (rs,i) -> rs.getString(1),business).isEmpty())
+        if (db.query("select code from wf_business where code=? for update",
+                (rs, i) -> rs.getString(1), business).isEmpty()) {
             throw new BusinessException(403, "无此业务权限");
-        boolean allowed = Boolean.TRUE.equals(db.queryForObject("""
-            select exists(select 1 from wf_business b left join wf_business_grant g
-            on b.code=g.business_code and g.user_id=? where b.code=? and (? or g.%s))
-            """.formatted(column), Boolean.class, user.id(), business, user.admin()));
+        }
+        if (user.admin()) return;
+
+        var grants = db.query("""
+                select can_edit, can_publish, can_start
+                from wf_business_grant where business_code=? and user_id=?
+                """, (rs, i) -> new Rights(rs.getBoolean(1), rs.getBoolean(2), rs.getBoolean(3)),
+                business, user.id());
+        boolean allowed = !grants.isEmpty() && switch (capability) {
+            case VIEW_DRAFT -> grants.getFirst().edit() || grants.getFirst().publish();
+            case EDIT -> grants.getFirst().edit();
+            case PUBLISH -> grants.getFirst().publish();
+            case START -> grants.getFirst().start();
+        };
         if (!allowed) throw new BusinessException(403, "无此业务权限");
     }
 

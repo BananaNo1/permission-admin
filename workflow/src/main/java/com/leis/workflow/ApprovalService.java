@@ -27,6 +27,8 @@ import java.util.Map;
 
 @Service
 public class ApprovalService {
+    public static final String FORM_OPINION = "opinion";
+    public static final String FORM_REQUIRED_OPINION = "required-opinion";
     private static final String PROCESS_KEY = "singleApproval";
     private static final String LEGACY_REVIEW = "review";
     private static final String REVISION_TASK = "revise";
@@ -107,6 +109,9 @@ public class ApprovalService {
         }
         Action action = request.resolveAction();
         String comment = optionalText(request.comment());
+        if (FORM_REQUIRED_OPINION.equals(task.getFormKey()) && comment.isBlank()) {
+            throw new BusinessException(400, "请填写审批意见");
+        }
         boolean legacy = LEGACY_REVIEW.equals(task.getTaskDefinitionKey());
         if (legacy && action == Action.RETURN) {
             throw new BusinessException(409, "该申请使用旧版流程，仅支持通过或驳回");
@@ -138,7 +143,7 @@ public class ApprovalService {
                     var variables = task.getTaskLocalVariables();
                     return new RecordedAction(task.getId(), task.getAssignee(),
                             (String) variables.get("recordedAction"), (String) variables.get("recordedComment"),
-                            task.getEndTime());
+                            task.getEndTime(), (String) variables.get("wfCompletedAt"));
                 }).toList();
         return new PageResult<>(records, total, page, pageSize);
     }
@@ -235,7 +240,9 @@ public class ApprovalService {
         var variables = task.getProcessVariables();
         String type = REVISION_TASK.equals(task.getTaskDefinitionKey()) ? "RESUBMIT" : "REVIEW";
         return new PendingTask(task.getId(), task.getProcessInstanceId(), (String) variables.get("title"),
-                (String) variables.get("description"), (String) variables.get("applicantId"), task.getCreateTime(), type, task.getName());
+                (String) variables.get("description"), (String) variables.get("applicantId"), task.getCreateTime(), type, task.getName(),
+                "REVIEW".equals(type) && !LEGACY_REVIEW.equals(task.getTaskDefinitionKey()), task.getFormKey(),
+                (String) variables.get("wfEntered_" + task.getTaskDefinitionKey()));
     }
 
     private static int offset(int page, int pageSize) {
@@ -296,10 +303,12 @@ public class ApprovalService {
     }
 
     public record PendingTask(String id, String instanceId, String title, String description,
-                              String applicantId, Date createTime, String type, String nodeName) {
+                              String applicantId, Date createTime, String type, String nodeName, boolean returnAllowed,
+                              String formKey, String nodeEnteredAt) {
     }
 
-    public record RecordedAction(String taskId, String actorId, String action, String comment, Date time) {
+    public record RecordedAction(String taskId, String actorId, String action, String comment, Date time,
+                                 String listenerCompletedAt) {
     }
 }
 

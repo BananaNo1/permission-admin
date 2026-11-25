@@ -3,7 +3,7 @@ import { expect, test, type Page } from '@playwright/test'
 const path = '/api/workflow/businesses/buy/templates'
 const steps = [{ name: '主管审批', mode: 'SINGLE', approverIds: [2], minAmount: null, returnTo: 'APPLICANT' }]
 
-async function openTemplates(page: Page, edit: boolean, nodes = steps) {
+async function openTemplates(page: Page, edit: boolean, nodes = steps, publish = !edit) {
   const draft = { code: 'order', name: '采购审批', revision: 7, publishedVersion: 1, dirty: true, steps: nodes }
   await page.route('**/api/auth/me', route => route.fulfill({ json: {
     id: '9', username: 'operator', deptId: '1', admin: false, permissions: ['workflow:template:list'],
@@ -19,7 +19,7 @@ async function openTemplates(page: Page, edit: boolean, nodes = steps) {
     json: [{ id: 2, name: '张三', username: 'zhangsan', enabled: true }],
   }))
   await page.route('**/api/workflow/businesses', route => route.fulfill({ json: [
-    { code: 'buy', name: '采购业务', edit, publish: !edit, start: false },
+    { code: 'buy', name: '采购业务', edit, publish, start: false },
   ] }))
   await page.route('**' + path, route => route.fulfill({ json: [draft] }))
   await page.route('**' + path + '/order', route => {
@@ -199,4 +199,45 @@ test('super administrator can create the first business and then its first templ
   const request = page.waitForRequest(req => req.method() === 'PUT' && req.url().endsWith(path + '/order'), { timeout: 5000 })
   await page.getByRole('button', { name: '保存草稿' }).click()
   expect((await request).postDataJSON()).toMatchObject({ name: '采购审批', revision: 0, steps })
+})
+
+test('configures the task form and listeners, then saves and publishes the node', async ({ page }) => {
+  await openTemplates(page, true, steps, true)
+  const inspector = page.getByRole('complementary', { name: '节点属性' })
+  await page.getByTestId('bpmn-modeler').locator('.djs-shape[data-element-id="Task_0"] .djs-hit').first().click()
+  await expect(inspector.getByText('任务配置', { exact: true })).toBeVisible()
+  await inspector.getByText('表单配置', { exact: true }).click()
+  await inspector.getByLabel('办理表单').selectOption('required-opinion')
+  await inspector.getByText('执行监听器', { exact: true }).click()
+  await inspector.getByRole('checkbox', { name: '节点进入时记录时间' }).check()
+  await inspector.getByText('任务监听器', { exact: true }).click()
+  await inspector.getByRole('checkbox', { name: '任务办理完成时记录时间' }).check()
+  await expect(page.getByRole('button', { name: '发布版本' })).toBeDisabled()
+  const save = page.waitForRequest(request => request.method() === 'PUT' && request.url().endsWith(path + '/order'))
+  await page.getByRole('button', { name: '保存草稿' }).click()
+  expect((await save).postDataJSON().steps[0]).toMatchObject({
+    formKey: 'required-opinion', recordEntered: true, recordCompleted: true,
+  })
+  const publish = page.getByRole('button', { name: '发布版本' })
+  await expect(publish).toBeEnabled()
+  await page.getByTestId('bpmn-modeler').locator('.djs-shape[data-element-id="Task_0"] .djs-hit').first().click()
+  await inspector.getByText('表单配置', { exact: true }).click()
+  await expect(inspector.getByLabel('办理表单')).toHaveValue('required-opinion')
+  await publish.click()
+  await expect(page.getByText(/草稿已发布/)).toBeVisible()
+})
+
+test('shows the HTTP status for a failed publication and clears the alert after retry', async ({ page }) => {
+  await openTemplates(page, true, steps, true)
+  await page.route('**' + path + '/order/publish', route => route.fulfill({ status: 503 }), { times: 1 })
+
+  const publish = page.getByRole('button', { name: '发布版本' })
+  const alert = page.locator('.global-alert')
+  await publish.click()
+  await expect(alert).toHaveText(/HTTP 503/)
+  await expect(page.getByText(/草稿待发布/)).toBeVisible()
+
+  await publish.click()
+  await expect(page.getByText(/草稿已发布/)).toBeVisible()
+  await expect(alert).toHaveCount(0)
 })

@@ -54,7 +54,7 @@ public class TemplateService {
     }
 
     public List<Draft> drafts(String business) {
-        access.require(business, "VIEW_DRAFT");
+        access.require(business, BusinessAccess.Capability.VIEW_DRAFT);
         return db.query("select * from wf_template where business=? order by code", (rs,i) ->
                 new Draft(rs.getString("code"), rs.getString("name"), rs.getInt("revision"),
                         rs.getInt("published_version"), rs.getInt("revision") != rs.getInt("published_revision"),
@@ -63,7 +63,7 @@ public class TemplateService {
 
     @Transactional
     public void save(String business, String code, Save request) {
-        access.require(business, "EDIT");
+        access.require(business, BusinessAccess.Capability.EDIT);
         if (!code.matches("[a-zA-Z][a-zA-Z0-9_-]{0,47}")) throw new BusinessException(400,"模板编码格式无效");
         String key = "wfTpl" + UUID.randomUUID().toString().replace("-", "");
         TemplateCompiler.compile(key, request.name(), request.steps());
@@ -87,7 +87,7 @@ public class TemplateService {
 
     @Transactional
     public void publish(String business, String code, int revision) {
-        access.require(business, "PUBLISH");
+        access.require(business, BusinessAccess.Capability.PUBLISH);
         var drafts = db.queryForList("select * from wf_template where business=? and code=? for update", business, code);
         if (drafts.isEmpty()) throw new BusinessException(404,"模板不存在");
         var draft = drafts.getFirst();
@@ -111,7 +111,7 @@ public class TemplateService {
     }
 
     public Release release(String business, String code) {
-        access.require(business,"START");
+        access.require(business, BusinessAccess.Capability.START);
         var rows = db.query("""
                 select r.* from wf_template t join wf_template_release r on t.business=r.business and t.code=r.code
                     and t.published_version=r.version where t.business=? and t.code=?
@@ -122,7 +122,7 @@ public class TemplateService {
     }
 
     public List<Release> published(String business) {
-        access.require(business,"START");
+        access.require(business, BusinessAccess.Capability.START);
         return db.query("""
                 select r.* from wf_template t join wf_template_release r on t.business=r.business and t.code=r.code
                     and t.published_version=r.version where t.business=? order by r.code

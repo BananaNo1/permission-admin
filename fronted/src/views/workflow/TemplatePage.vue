@@ -6,6 +6,7 @@ import { api } from '@/api/http'
 import { useAuth } from '@/stores/auth'
 import TemplateEditor from './TemplateEditor.vue'
 import BusinessGrants from './BusinessGrants.vue'
+import ApprovalWorkbench from './ApprovalWorkbench.vue'
 import type { DiagramLayout } from './approvalDiagram'
 
 type Business = { code: string; name: string; edit: boolean; publish: boolean; start: boolean }
@@ -39,6 +40,7 @@ const loadingBusinesses = ref(true)
 const loading = ref(false)
 const error = ref('')
 const managingGrants = ref(false)
+const workbench = ref(false)
 const firstBusinessDialog = ref(false)
 const grants = ref<{ focusBusinessCode: () => void } | null>(null)
 let requestId = 0
@@ -115,7 +117,8 @@ onMounted(() => loadBusinesses(typeof route.query.business === 'string' ? route.
 </script>
 
 <template>
-  <section class="workflow-page">
+  <ApprovalWorkbench v-if="workbench" :businesses="businesses" :preferred-business="selected" @close="workbench = false" />
+  <section v-else class="workflow-page">
     <header class="workflow-heading">
       <div class="heading-copy">
         <div v-if="designing || managingGrants" class="breadcrumbs">
@@ -126,6 +129,7 @@ onMounted(() => loadBusinesses(typeof route.query.business === 'string' ? route.
         <p v-if="designing && draft" class="subtle">{{ draft.code }} · {{ draft.publishedVersion ? '已发布 v' + draft.publishedVersion : '未发布' }}</p>
       </div>
       <div class="workflow-actions">
+        <NButton v-if="!designing && !managingGrants" :disabled="loadingBusinesses" @click="workbench = true">审批工作台</NButton>
         <NButton v-if="auth.me?.admin && businesses.length && !designing && !managingGrants" @click="managingGrants = true">业务与授权</NButton>
         <NButton v-if="!designing && !managingGrants && (business?.edit || (auth.me?.admin && !businesses.length && !error))"
           type="primary" :disabled="loading || loadingBusinesses" @click="createTemplate">新建模板</NButton>

@@ -7,7 +7,7 @@ import type { DiagramLayout, DiagramNode } from './approvalDiagram'
 const TemplateFlow = defineAsyncComponent(() => import('./TemplateFlow.vue'))
 
 type Position = {x:number; y:number}
-type Step = {name:string; mode:string; approverIds:number[]; minAmount:number|null; returnTo:string; position?:Position|null}
+type Step = {name:string; mode:string; approverIds:number[]; minAmount:number|null; returnTo:string; position?:Position|null; formKey?:string|null; recordEntered?:boolean; recordCompleted?:boolean}
 type Template = {code:string; name:string; revision:number; publishedVersion:number|null; dirty:boolean; steps:Step[]; diagramLayout?:DiagramLayout|null}
 const props = defineProps<{business:string; template:Template|null; edit:boolean; publish:boolean}>()
 const emit = defineEmits<{saved:[code:string]}>()
@@ -221,6 +221,10 @@ async function submit(publishing:boolean) {
   <fieldset v-if="step" :disabled="!edit || busy">
     <article>
       <label>节点名称<input v-model="step.name" required></label>
+    </article>
+    <details open>
+      <summary>任务配置</summary>
+      <article>
       <label>审批模式<select v-model="step.mode"><option value="SINGLE">单人审批</option><option value="ANY">或签</option><option value="ALL">会签</option><option value="SEQUENTIAL">依次审批</option></select></label>
       <div class="reviewer-field" @input.stop>
         <span>审批人</span>
@@ -235,7 +239,32 @@ async function submit(publishing:boolean) {
       <label>最低金额<input v-model="step.minAmount" inputmode="decimal" :disabled="active===0" placeholder="不限"></label>
       <label>退回位置<select v-model="step.returnTo"><option value="APPLICANT">申请人</option><option value="PREVIOUS" :disabled="active===0">上一节点</option></select></label>
       <div v-if="edit" class="node-actions"><button type="button" :disabled="!diagramValid || active===0" @click="move(active,-1)">上移</button> <button type="button" :disabled="!diagramValid || active===steps.length-1" @click="move(active,1)">下移</button> <button type="button" :disabled="!diagramValid" @click="remove(active)">删除节点</button></div>
-    </article>
+      </article>
+    </details>
+    <details>
+      <summary>表单配置</summary>
+      <article>
+        <label>办理表单
+          <select :value="step.formKey ?? ''" @change="step.formKey = ($event.target as HTMLSelectElement).value || null; modified = true">
+            <option value="">默认审批表单</option>
+            <option value="opinion">审批意见选填</option>
+            <option value="required-opinion">审批意见必填</option>
+          </select>
+        </label>
+      </article>
+    </details>
+    <details>
+      <summary>执行监听器</summary>
+      <article>
+        <label class="check-setting"><input v-model="step.recordEntered" type="checkbox" /> 节点进入时记录时间</label>
+      </article>
+    </details>
+    <details>
+      <summary>任务监听器</summary>
+      <article>
+        <label class="check-setting"><input v-model="step.recordCompleted" type="checkbox" /> 任务办理完成时记录时间</label>
+      </article>
+    </details>
   </fieldset>
   <p v-else class="inspector-empty">点击画布中的审批节点，查看或修改该节点的配置。</p>
   </aside>
@@ -270,4 +299,9 @@ button:disabled { opacity:.5; cursor:default; }
 [role=alert] { color:#ab2537; }
 .error { margin:0; padding:10px 14px; background:#fff0f1; border:1px solid #f0c9cf; border-radius:6px; }
 @container (min-width: 820px) { .designer { grid-template-columns:minmax(0,1fr) 292px; } }
+.inspector details { border-top:1px solid #e3eaf4; }
+.inspector summary { cursor:pointer; font-weight:600; padding:12px 16px; }
+.inspector details article { padding-top:0; }
+.check-setting { display:flex; gap:8px; align-items:center; }
+.check-setting input { width:auto; min-height:auto; margin:0; }
 </style>

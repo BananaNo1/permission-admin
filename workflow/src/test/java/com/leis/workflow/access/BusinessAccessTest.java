@@ -39,23 +39,23 @@ class BusinessAccessTest {
         when(current.get()).thenReturn(admin);
         access.create(new BusinessAccess.Create("a","甲"));
         access.create(new BusinessAccess.Create("b","乙"));
-        assertThatThrownBy(() -> access.require("missing","START")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> access.require("missing", BusinessAccess.Capability.START)).isInstanceOf(BusinessException.class);
         access.grant("a",2,new BusinessAccess.Rights(true,false,false));
         when(current.get()).thenReturn(editor);
-        access.require("a","VIEW_DRAFT");
-        access.require("a","EDIT");
+        access.require("a", BusinessAccess.Capability.VIEW_DRAFT);
+        access.require("a", BusinessAccess.Capability.EDIT);
         assertThat(access.list()).extracting(BusinessAccess.Business::code).containsExactly("a");
-        assertThatThrownBy(() -> access.require("a","PUBLISH")).isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> access.require("b","EDIT")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> access.require("a", BusinessAccess.Capability.PUBLISH)).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> access.require("b", BusinessAccess.Capability.EDIT)).isInstanceOf(BusinessException.class);
         assertThatThrownBy(() -> access.grant("b",2,new BusinessAccess.Rights(true,true,true))).isInstanceOf(BusinessException.class);
         when(current.get()).thenReturn(actor(3,false));
-        assertThatThrownBy(() -> access.require("a","VIEW_DRAFT")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> access.require("a", BusinessAccess.Capability.VIEW_DRAFT)).isInstanceOf(BusinessException.class);
         when(current.get()).thenReturn(admin);
         access.grant("a",2,new BusinessAccess.Rights(false,true,false));
         when(current.get()).thenReturn(editor);
-        access.require("a","VIEW_DRAFT");
-        access.require("a","PUBLISH");
-        assertThatThrownBy(() -> access.require("a","EDIT")).isInstanceOf(BusinessException.class);
+        access.require("a", BusinessAccess.Capability.VIEW_DRAFT);
+        access.require("a", BusinessAccess.Capability.PUBLISH);
+        assertThatThrownBy(() -> access.require("a", BusinessAccess.Capability.EDIT)).isInstanceOf(BusinessException.class);
         when(current.get()).thenReturn(admin);
         access.grant("a",2,new BusinessAccess.Rights(false,false,false));
         when(current.get()).thenReturn(editor);
@@ -65,7 +65,7 @@ class BusinessAccessTest {
         verify(audit).success(new AuditCommand(1L,"user","WORKFLOW_BUSINESS_REVOKE","WORKFLOW_BUSINESS","a",true,
                 "userId=2 edit=false publish=false start=false",null));
         assertThat(access.list()).isEmpty();
-        assertThatThrownBy(() -> access.require("a","VIEW_DRAFT")).isInstanceOf(BusinessException.class);
+        assertThatThrownBy(() -> access.require("a", BusinessAccess.Capability.VIEW_DRAFT)).isInstanceOf(BusinessException.class);
     }
 
     private ActorSnapshot actor(long id, boolean admin) {

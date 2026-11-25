@@ -21,7 +21,7 @@ public class ReviewerDirectory {
     }
 
     public List<Reviewer> find(String business, String keyword, List<Long> ids) {
-        access.require(business, "VIEW_DRAFT");
+        access.require(business, BusinessAccess.Capability.VIEW_DRAFT);
         if (keyword.length() > 64 || (ids != null && ids.size() > 50)) {
             throw new BusinessException(400, "审批人查询参数超出范围");
         }
