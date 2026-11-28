@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = TemplateCompilerTest.TestApplication.class,
         webEnvironment = SpringBootTest.WebEnvironment.NONE,
-        properties = {"spring.datasource.url=jdbc:h2:mem:compiler-test", "flowable.database-schema-update=true"})
+        properties = { "spring.datasource.url=jdbc:h2:mem:compiler-test", "flowable.database-schema-update=true" })
 class TemplateCompilerTest {
     @org.springframework.context.annotation.Configuration(proxyBeanMethods = false)
     @org.springframework.boot.autoconfigure.EnableAutoConfiguration
@@ -29,7 +29,7 @@ class TemplateCompilerTest {
     @Autowired TaskService tasks;
 
     @ParameterizedTest
-    @CsvSource({"99.99,review0", "100.00,review1"})
+    @CsvSource({ "99.99,review0", "100.00,review1" })
     void returnsToLastExecutedStep(String amount, String previous) {
         var steps = List.of(new Step("初审", SINGLE, List.of(2L), null, "APPLICANT"),
                 new Step("财务", SINGLE, List.of(3L), new BigDecimal("100.00"), "PREVIOUS"),

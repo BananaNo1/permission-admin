@@ -9,6 +9,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+/**
+ * 记录登录及操作结果，并处理失败审计的独立写入。
+ */
 @Service
 public class AuditService {
 
@@ -27,7 +30,7 @@ public class AuditService {
      * 在业务事务内写入成功审计，使审计随业务变更一起提交或回滚。
      */
     @Transactional(propagation = Propagation.MANDATORY)
-    public void success(AuditCommand auditCommand){
+    public void success(AuditCommand auditCommand) {
         mapper.operation(auditCommand);
     }
 

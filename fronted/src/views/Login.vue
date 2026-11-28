@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import {ref} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
-import {NCard, NForm, NFormItem, NInput, NButton} from 'naive-ui'
-import {useAuth} from '@/stores/auth'
-import {notice} from '@/api/http'
+import { ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { NCard, NForm, NFormItem, NInput, NButton } from 'naive-ui'
+import { useAuth } from '@/stores/auth'
+import { notice } from '@/api/http'
 
 const auth = useAuth()
 const router = useRouter()
@@ -34,10 +34,10 @@ async function login() {
     <NCard title="登录" class="login-card">
       <NForm @submit.prevent="login">
         <NFormItem label="账号">
-          <NInput v-model:value="username" autocomplete="username"/>
+          <NInput v-model:value="username" autocomplete="username" />
         </NFormItem>
         <NFormItem label="密码">
-          <NInput v-model:value="password" type="password" show-password-on="click" autocomplete="current-password"/>
+          <NInput v-model:value="password" type="password" show-password-on="click" autocomplete="current-password" />
         </NFormItem>
         <NButton attr-type="submit" type="primary" block :loading="busy">登录</NButton>
       </NForm>

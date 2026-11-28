@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {h, onMounted, ref, computed, type VNode} from 'vue'
-import {NCard, NButton, NSpace, NDataTable, useDialog, type DataTableColumns} from 'naive-ui'
-import type {MenuVO} from '@/types/menu'
-import {listMenus, deleteMenu} from '@/api/menu'
+import { h, onMounted, ref, computed, type VNode } from 'vue'
+import { NCard, NButton, NSpace, NDataTable, useDialog, type DataTableColumns } from 'naive-ui'
+import type { MenuVO } from '@/types/menu'
+import { listMenus, deleteMenu } from '@/api/menu'
 import MenuEditDialog from './MenuEditDialog.vue'
 
 const dialog = useDialog()
@@ -50,22 +50,22 @@ type MenuRow = MenuVO & { children?: MenuRow[] }
 function tree(parentId: string | null): MenuRow[] {
   return rows.value.filter(row => row.parentId === parentId).map(row => {
     const children = tree(row.id)
-    return {...row, ...(children.length ? {children} : {})}
+    return { ...row, ...(children.length ? { children } : {}) }
   })
 }
 
 const tableRows = computed(() => tree(null))
 const columns: DataTableColumns<MenuVO> = [
-  {title: '菜单', key: 'name'},
-  {title: '类型', key: 'type'},
-  {title: '权限标识', key: 'permissionCode'},
-  {title: '状态', key: 'status'},
+  { title: '菜单', key: 'name' },
+  { title: '类型', key: 'type' },
+  { title: '权限标识', key: 'permissionCode' },
+  { title: '状态', key: 'status' },
   {
     title: '操作', key: 'actions', width: 200, render(row) {
       const buttons: VNode[] = []
-      buttons.push(h(NButton, {size: 'small', onClick: () => edit(row)}, {default: () => '编辑'}))
-      buttons.push(h(NButton, {size: 'small', type: 'error', onClick: () => remove(row)}, {default: () => '删除'}))
-      return h(NSpace, null, {default: () => buttons})
+      buttons.push(h(NButton, { size: 'small', onClick: () => edit(row) }, { default: () => '编辑' }))
+      buttons.push(h(NButton, { size: 'small', type: 'error', onClick: () => remove(row) }, { default: () => '删除' }))
+      return h(NSpace, null, { default: () => buttons })
     }
   },
 ]
@@ -78,7 +78,7 @@ onMounted(load)
       <NButton @click="load">刷新</NButton>
       <NButton type="primary" @click="edit(null)">新增菜单</NButton>
     </div>
-    <NDataTable striped :columns="columns" :data="tableRows" :loading="loading" :row-key="row => row.id" :scroll-x="900"/>
+    <NDataTable striped :columns="columns" :data="tableRows" :loading="loading" :row-key="row => row.id" :scroll-x="900" />
   </NCard>
-  <MenuEditDialog v-if="editOpen" :menu="editing" :menus="rows" @saved="saved" @close="editOpen = false"/>
+  <MenuEditDialog v-if="editOpen" :menu="editing" :menus="rows" @saved="saved" @close="editOpen = false" />
 </template>

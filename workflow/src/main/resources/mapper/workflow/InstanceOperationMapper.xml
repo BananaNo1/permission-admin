@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leis.workflow.execution.mapper.InstanceOperationMapper">
+    <resultMap id="instanceOperation" type="com.leis.workflow.ApprovalService$InstanceOperation">
+        <constructor>
+            <idArg column="id" javaType="_long"/>
+            <arg column="task_id" javaType="string"/>
+            <arg column="actor_id" javaType="string"/>
+            <arg column="target_id" javaType="string"/>
+            <arg column="operation" javaType="string"/>
+            <arg column="reason" javaType="string"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <insert id="ensureLock">
+        insert into wf_instance_control(instance_id) values (#{instanceId})
+        on conflict do nothing
+    </insert>
+
+    <select id="lock" resultType="string" flushCache="true" useCache="false">
+        select instance_id from wf_instance_control where instance_id = #{instanceId} for update
+    </select>
+
+    <insert id="record">
+        insert into wf_instance_operation(instance_id, task_id, actor_id, target_id, operation, reason)
+        values (#{instanceId}, #{taskId,jdbcType=VARCHAR}, #{actorId}, #{targetId,jdbcType=BIGINT}, #{operation}, #{reason})
+    </insert>
+
+    <select id="recent" resultMap="instanceOperation">
+        select id, task_id, cast(actor_id as varchar) as actor_id, cast(target_id as varchar) as target_id, operation, reason, created_at
+        from wf_instance_operation where instance_id = #{instanceId}
+        order by id desc limit 20
+    </select>
+
+    <select id="wasTransferrer" resultType="_boolean">
+        select exists(select 1 from wf_instance_operation
+            where instance_id = #{instanceId} and actor_id = #{actorId} and operation = 'TRANSFER')
+    </select>
+</mapper>

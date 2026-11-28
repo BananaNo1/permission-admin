@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { fulfillApi } from './api-response'
 
 const system = { id: '1', parentId: null, name: '系统管理', type: 'DIRECTORY', visible: true }
 const menus = [
@@ -9,14 +10,14 @@ const menus = [
 ]
 
 test('filters parent menus by the new menu type', async ({ page }) => {
-  await page.route('**/api/auth/me', route => route.fulfill({
+  await page.route('**/api/auth/me', route => fulfillApi(route, {
     json: { id: '1', username: 'menu-test', deptId: '1', admin: true, permissions: [] },
   }))
-  await page.route('**/api/auth/menus', route => route.fulfill({ json: menus }))
-  await page.route('**/api/auth/csrf', route => route.fulfill({ json: { token: 'test-token', headerName: 'X-CSRF-TOKEN' } }))
+  await page.route('**/api/auth/menus', route => fulfillApi(route, { json: menus }))
+  await page.route('**/api/auth/csrf', route => fulfillApi(route, { json: { token: 'test-token', headerName: 'X-CSRF-TOKEN' } }))
   await page.route('**/api/system/menus', route => {
-    if (route.request().method() === 'GET') return route.fulfill({ json: menus })
-    return route.fulfill({ json: { id: '30', ...route.request().postDataJSON() } })
+    if (route.request().method() === 'GET') return fulfillApi(route, { json: menus })
+    return fulfillApi(route, { json: { id: '30', ...route.request().postDataJSON() } })
   })
 
   await page.goto('/system/menus')
@@ -54,7 +55,9 @@ test('filters parent menus by the new menu type', async ({ page }) => {
   await field('权限标识').getByRole('textbox').fill('system:menu:export')
   await field('用途说明').getByRole('textbox').fill('导出菜单清单。')
   const posted = page.waitForRequest(request => request.method() === 'POST' && request.url().endsWith('/api/system/menus'))
+  const refreshed = page.waitForResponse(response => response.ok() && response.url().endsWith('/api/auth/menus'))
   await form.getByRole('button', { name: '保存' }).click()
+  await refreshed
   expect((await posted).postDataJSON()).toMatchObject({ type: 'BUTTON', parentId: '27', permissionCode: 'system:menu:export', name: '导出菜单', description: '导出菜单清单。' })
   await expect(form).toBeHidden()
 })

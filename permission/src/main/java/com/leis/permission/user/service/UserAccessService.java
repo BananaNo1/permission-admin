@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.Objects;
 
+/**
+ * 在修改用户前校验数据范围、版本和管理员保护规则。
+ */
 @Service
 @RequiredArgsConstructor
 public class UserAccessService {
@@ -31,7 +34,7 @@ public class UserAccessService {
     public User writable(Long id, Integer version) {
         deptMapper.lockTree();
         User row = userMapper.lock(id);
-        if (row == null || userMapper.selectCount(scope.scoped(current.get()).eq("id", id)) == 0) {
+        if (row == null || userMapper.selectCount(scope.scoped(current.get()).eq(User::getId, id)) == 0) {
             throw new BusinessException(404, "用户不存在或不可访问");
         }
         VersionGuard.check(row.getVersion(), version);

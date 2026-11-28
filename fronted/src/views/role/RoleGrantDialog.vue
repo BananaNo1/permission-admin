@@ -5,7 +5,7 @@ import { listMenus } from '@/api/menu'
 import { grantRoleMenus, listRoleMenuIds } from '@/api/role'
 import type { MenuVO } from '@/types/menu'
 import type { RoleVO } from '@/types/role'
-import AssignmentReview from '@/views/AssignmentReview.vue'
+import AssignmentReview from '@/components/assignment/AssignmentReview.vue'
 
 import { describePermission } from './permissionDisplay'
 
@@ -164,7 +164,7 @@ onMounted(load)
   </NModal>
 </template>
 
-<style scoped src="@/views/assignment-dialog.css"></style>
+<style scoped src="@/components/assignment/assignment-dialog.css"></style>
 
 <style scoped>
 .assignment-list :deep(.permission-node) {

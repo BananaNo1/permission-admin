@@ -1,5 +1,8 @@
 package com.leis.common.common;
 
+/**
+ * 携带 HTTP 状态码与用户可读信息的业务异常。
+ */
 public class BusinessException extends RuntimeException{
     private final int status;
 

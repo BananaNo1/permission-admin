@@ -6,15 +6,6 @@ import { useAuth } from '@/stores/auth'
 
 const auth = useAuth()
 const router = useRouter()
-const descriptions: Record<string, string> = {
-  'workflow/templates': '配置审批节点、管理业务授权和发布流程',
-  'system/user': '账号、状态与角色分配',
-  'system/role': '角色与菜单授权',
-  'system/dept': '部门与组织层级',
-  'system/menu': '菜单层级与访问权限',
-  'audit/login': '登录时间与结果',
-  'audit/operation': '操作时间与变更记录',
-}
 
 const groups = computed(() => {
   const menusById = new Map(auth.menus.map(menu => [menu.id, menu]))
@@ -36,7 +27,7 @@ const groups = computed(() => {
       id: menu.id,
       name: menu.name,
       path: menu.path,
-      description: descriptions[menu.componentKey ?? ''],
+      description: menu.description?.trim(),
     })
   }
 

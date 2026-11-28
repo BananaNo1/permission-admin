@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leis.workflow.template.mapper.TemplateMapper">
+    <resultMap id="draftRow" type="com.leis.workflow.template.entity.TemplateDraftRow">
+        <constructor>
+            <arg column="code" javaType="string"/>
+            <arg column="engine_key" javaType="string"/>
+            <arg column="name" javaType="string"/>
+            <arg column="steps" javaType="string"/>
+            <arg column="diagram_layout" javaType="string"/>
+            <arg column="revision" javaType="_int"/>
+            <arg column="published_version" javaType="_int"/>
+            <arg column="published_revision" javaType="_int"/>
+            <arg column="enabled" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="releaseRow" type="com.leis.workflow.template.entity.TemplateReleaseRow">
+        <constructor>
+            <arg column="code" javaType="string"/>
+            <arg column="name" javaType="string"/>
+            <arg column="version" javaType="_int"/>
+            <arg column="definition_id" javaType="string"/>
+            <arg column="steps" javaType="string"/>
+            <arg column="diagram_layout" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="draftColumns">
+        code, engine_key, name, steps, diagram_layout, revision, published_version, published_revision, enabled
+    </sql>
+
+    <select id="findDrafts" resultMap="draftRow">
+        select <include refid="draftColumns"/>
+        from wf_template
+        where business = #{business}
+        order by code
+    </select>
+
+    <select id="lockDraft" resultMap="draftRow" flushCache="true" useCache="false">
+        select <include refid="draftColumns"/>
+        from wf_template
+        where business = #{business} and code = #{code}
+        for update
+    </select>
+
+    <insert id="insertDraft">
+        insert into wf_template (business, code, engine_key, name, steps, diagram_layout, revision, edited_by)
+        values (#{business}, #{code}, #{engineKey}, #{name}, #{steps}, #{diagramLayout,jdbcType=VARCHAR}, 1, #{editedBy})
+    </insert>
+
+    <update id="updateDraft">
+        update wf_template
+        set name = #{name}, steps = #{steps}, diagram_layout = #{diagramLayout,jdbcType=VARCHAR},
+            revision = revision + 1, edited_by = #{editedBy}, edited_at = current_timestamp
+        where business = #{business} and code = #{code} and revision = #{revision}
+    </update>
+
+    <insert id="insertRelease">
+        insert into wf_template_release (business, code, version, name, steps, diagram_layout, definition_id, published_by)
+        values (#{business}, #{code}, #{version}, #{name}, #{steps}, #{diagramLayout,jdbcType=VARCHAR},
+                #{definitionId}, #{publishedBy})
+    </insert>
+
+    <update id="markPublished">
+        update wf_template
+        set published_version = #{version}, published_revision = revision + 1, revision = revision + 1
+        where business = #{business} and code = #{code}
+    </update>
+
+    <sql id="currentRelease">
+        select r.code, r.name, r.version, r.definition_id, r.steps, r.diagram_layout
+        from wf_template t
+        join wf_template_release r
+          on t.business = r.business and t.code = r.code and t.published_version = r.version
+        where t.business = #{business} and t.enabled = true
+    </sql>
+
+    <select id="findCurrentRelease" resultMap="releaseRow">
+        <include refid="currentRelease"/>
+        and t.code = #{code}
+    </select>
+
+    <select id="findCurrentReleases" resultMap="releaseRow">
+        <include refid="currentRelease"/>
+        order by r.code
+    </select>
+
+    <resultMap id="versionSummary" type="com.leis.workflow.template.TemplateService$VersionSummary">
+        <constructor>
+            <arg column="version" javaType="_int"/>
+            <arg column="name" javaType="string"/>
+            <arg column="published_by" javaType="string"/>
+            <arg column="published_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findVersions" resultMap="versionSummary">
+        select version, name, cast(published_by as varchar) as published_by, published_at
+        from wf_template_release
+        where business = #{business} and code = #{code}
+        order by version desc
+    </select>
+
+    <select id="findVersion" resultMap="releaseRow">
+        select code, name, version, definition_id, steps, diagram_layout
+        from wf_template_release
+        where business = #{business} and code = #{code} and version = #{version}
+    </select>
+
+    <update id="updateAvailability">
+        update wf_template
+        set enabled = #{enabled},
+            published_revision = case when published_revision = revision then revision + 1 else published_revision end,
+            revision = revision + 1, edited_by = #{editedBy}, edited_at = current_timestamp
+        where business = #{business} and code = #{code} and revision = #{revision}
+    </update>
+</mapper>

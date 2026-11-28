@@ -9,6 +9,9 @@ import com.leis.permission.log.vo.OperationLogVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+/**
+ * 校验审计查询权限并组装分页结果。
+ */
 @Service
 @RequiredArgsConstructor
 public class LogQueryService {

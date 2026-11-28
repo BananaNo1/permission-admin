@@ -1,7 +1,7 @@
 package com.leis.permission.auth;
 
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.leis.permission.dept.mapper.DeptMapper;
 import com.leis.permission.role.entity.Role;
 import com.leis.permission.role.mapper.RoleMapper;
@@ -16,6 +16,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 在新数据库首次启动时初始化受保护的管理员账号及其角色。
+ */
 @Component
 public class Bootstrap implements ApplicationRunner {
 
@@ -66,7 +69,7 @@ public class Bootstrap implements ApplicationRunner {
         user.setAuthVersion(0L);
         user.setVersion(0);
         users.insert(user);
-        Role root = roles.selectOne(new QueryWrapper<Role>().eq("code", "SUPER_ADMIN"));
+        Role root = roles.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getCode, "SUPER_ADMIN"));
         UserRole link = new UserRole();
         link.setUserId(user.getId());
         link.setRoleId(root.getId());

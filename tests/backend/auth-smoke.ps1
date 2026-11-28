@@ -6,12 +6,16 @@ function Assert-Status($response, [int]$expected, [string]$scenario) {
     if ([int]$response.StatusCode -ne $expected) {
         throw "$scenario expected=$expected actual=$($response.StatusCode)"
     }
+    $body = $response.Content | ConvertFrom-Json
+    if ($body.code -ne $expected -or -not $body.message -or 'data' -notin $body.PSObject.Properties.Name) {
+        throw "$scenario invalid response envelope"
+    }
     Write-Output "PASS $scenario ($expected)"
 }
 try {
     $csrfResponse = Invoke-WebRequest "$BaseUrl/api/auth/csrf" -WebSession $session -SkipHttpErrorCheck -TimeoutSec 10
     Assert-Status $csrfResponse 200 'anonymous CSRF endpoint'
-    $csrf = $csrfResponse.Content | ConvertFrom-Json
+    $csrf = ($csrfResponse.Content | ConvertFrom-Json).data
     if (-not $csrf.token -or -not $csrf.headerName) { throw 'CSRF response lacks token or headerName' }
     $response = Invoke-WebRequest "$BaseUrl/api/auth/me" -WebSession $session -SkipHttpErrorCheck -TimeoutSec 10
     Assert-Status $response 401 'anonymous identity request'
@@ -24,9 +28,9 @@ try {
         Assert-Status $response 200 'test account login'
         $response = Invoke-WebRequest "$BaseUrl/api/auth/me" -WebSession $session -SkipHttpErrorCheck -TimeoutSec 10
         Assert-Status $response 200 'session remains valid after login'
-        $me = $response.Content | ConvertFrom-Json
+        $me = ($response.Content | ConvertFrom-Json).data
         if ($me.username -ne $env:AUTH_TEST_USERNAME) { throw 'unexpected authenticated account' }
-        $csrf = Invoke-RestMethod "$BaseUrl/api/auth/csrf" -WebSession $session -TimeoutSec 10
+        $csrf = (Invoke-RestMethod "$BaseUrl/api/auth/csrf" -WebSession $session -TimeoutSec 10).data
         $headers[$csrf.headerName] = $csrf.token
         $response = Invoke-WebRequest "$BaseUrl/api/auth/logout" -Method Post -WebSession $session -Headers $headers -SkipHttpErrorCheck -TimeoutSec 10
         Assert-Status $response 200 'authenticated logout'

@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NLayout, NLayoutHeader, NLayoutSider, NMenu, NSpace, type MenuOption } from 'naive-ui'
 import { useAuth, type Menu } from '@/stores/auth'
-import { clearRoutes } from '@/router'
+import { clearRoutes, isMemberPage } from '@/router'
 import VisitedPages from './VisitedPages.vue'
 
 const auth = useAuth()
@@ -15,7 +15,7 @@ function tree(parentId: string | null): MenuOption[] {
   return auth.menus.filter(row => row.parentId === parentId && row.visible && row.type !== 'BUTTON')
       .flatMap((row: Menu) => {
         if (row.type === 'PAGE') {
-          if (!auth.me?.admin && !['system/user','workflow/templates'].includes(row.componentKey ?? '')) return []
+          if (!auth.me?.admin && !isMemberPage(row.componentKey)) return []
           return [{ label: row.name, key: row.path || row.id }]
         }
         const children = tree(row.id)

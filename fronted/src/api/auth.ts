@@ -1,5 +1,5 @@
-import {api} from './http'
-import type {MenuVO} from '@/types/menu'
+import { api } from './http'
+import type { MenuVO } from '@/types/menu'
 
 export interface MeVO {
     id: string;
@@ -18,7 +18,7 @@ export function getMyMenus() {
 }
 
 export function login(username: string, password: string) {
-    return api<void>('/auth/login', 'POST', new URLSearchParams({username, password}))
+    return api<void>('/auth/login', 'POST', new URLSearchParams({ username, password }))
 }
 
 export function logout() {
@@ -26,5 +26,5 @@ export function logout() {
 }
 
 export function changePassword(oldPassword: string, newPassword: string) {
-    return api<void>('/auth/password', 'PUT', {oldPassword, newPassword})
+    return api<void>('/auth/password', 'PUT', { oldPassword, newPassword })
 }

@@ -1,37 +1,39 @@
 import { expect, test, type Page } from '@playwright/test'
+import { fulfillApi } from './api-response'
 
 const path = '/api/workflow/businesses/buy/templates'
 const steps = [{ name: '主管审批', mode: 'SINGLE', approverIds: [2], minAmount: null, returnTo: 'APPLICANT' }]
 
-async function openTemplates(page: Page, edit: boolean, nodes = steps, publish = !edit) {
-  const draft = { code: 'order', name: '采购审批', revision: 7, publishedVersion: 1, dirty: true, steps: nodes }
-  await page.route('**/api/auth/me', route => route.fulfill({ json: {
+async function openTemplates(page: Page, edit: boolean, nodes = steps, publish = !edit, clean = false) {
+  const draft = { code: 'order', name: '采购审批', revision: 7, publishedVersion: clean ? 2 : 1, dirty: !clean, enabled: true, steps: nodes }
+  await page.route('**/api/auth/me', route => fulfillApi(route, { json: {
     id: '9', username: 'operator', deptId: '1', admin: false, permissions: ['workflow:template:list'],
   } }))
-  await page.route('**/api/auth/menus', route => route.fulfill({ json: [{
+  await page.route('**/api/auth/menus', route => fulfillApi(route, { json: [{
     id: '89', parentId: null, name: '流程管理', type: 'DIRECTORY', visible: true,
   }, {
     id: '90', parentId: '89', name: '流程模板', type: 'PAGE', visible: true, path: '/workflow/templates',
     routeName: 'WorkflowTemplates', componentKey: 'workflow/templates', permissionCode: 'workflow:template:list',
   }] }))
-  await page.route('**/api/auth/csrf', route => route.fulfill({ json: { token: 'test', headerName: 'X-CSRF-TOKEN' } }))
-  await page.route('**' + path + '/reviewers?*', route => route.fulfill({
+  await page.route('**/api/auth/csrf', route => fulfillApi(route, { json: { token: 'test', headerName: 'X-CSRF-TOKEN' } }))
+  await page.route('**' + path + '/reviewers?*', route => fulfillApi(route, {
     json: [{ id: 2, name: '张三', username: 'zhangsan', enabled: true }],
   }))
-  await page.route('**/api/workflow/businesses', route => route.fulfill({ json: [
+  await page.route('**/api/workflow/businesses', route => fulfillApi(route, { json: [
     { code: 'buy', name: '采购业务', edit, publish, start: false },
   ] }))
-  await page.route('**' + path, route => route.fulfill({ json: [draft] }))
+  await page.route('**' + path, route => fulfillApi(route, { json: [draft] }))
   await page.route('**' + path + '/order', route => {
     Object.assign(draft, route.request().postDataJSON(), { revision: 8 })
-    return route.fulfill({ status: 204 })
+    return fulfillApi(route)
   })
   await page.route('**' + path + '/order/publish', route => {
     Object.assign(draft, { revision: 8, publishedVersion: 2, dirty: false })
-    return route.fulfill({ status: 204 })
+    return fulfillApi(route)
   })
   await page.goto('/workflow/templates')
   await page.getByRole('button', { name: edit ? '设计 采购审批' : '查看 采购审批' }).click()
+  return draft
 }
 
 test('template catalog and design workspace have separate navigation', async ({ page }) => {
@@ -154,26 +156,26 @@ test('business publisher can publish the selected revision without editing', asy
 
 test('super administrator can create the first business and then its first template', async ({ page }) => {
   let created = false
-  await page.route('**/api/auth/me', route => route.fulfill({
+  await page.route('**/api/auth/me', route => fulfillApi(route, {
     json: { id: '1', username: 'admin', deptId: '1', admin: true, permissions: [] },
   }))
-  await page.route('**/api/auth/menus', route => route.fulfill({ json: [{
+  await page.route('**/api/auth/menus', route => fulfillApi(route, { json: [{
     id: '90', parentId: null, name: '流程模板', type: 'PAGE', visible: true, path: '/workflow/templates',
     routeName: 'WorkflowTemplates', componentKey: 'workflow/templates',
   }] }))
-  await page.route('**/api/auth/csrf', route => route.fulfill({ json: { token: 'test', headerName: 'X-CSRF-TOKEN' } }))
+  await page.route('**/api/auth/csrf', route => fulfillApi(route, { json: { token: 'test', headerName: 'X-CSRF-TOKEN' } }))
   await page.route('**/api/workflow/businesses', route => {
     if (route.request().method() === 'POST') {
       created = true
-      return route.fulfill({ status: 201 })
+      return fulfillApi(route, { status: 201 })
     }
-    return route.fulfill({ json: created ? [{ code: 'buy', name: '采购业务', edit: true, publish: true }] : [] })
+    return fulfillApi(route, { json: created ? [{ code: 'buy', name: '采购业务', edit: true, publish: true }] : [] })
   })
-  await page.route('**' + path, route => route.fulfill({ json: [] }))
-  await page.route('**' + path + '/reviewers?*', route => route.fulfill({
+  await page.route('**' + path, route => fulfillApi(route, { json: [] }))
+  await page.route('**' + path + '/reviewers?*', route => fulfillApi(route, {
     json: [{ id: 2, name: '张三', username: 'zhangsan', enabled: true }],
   }))
-  await page.route('**' + path + '/order', route => route.fulfill({ status: 204 }))
+  await page.route('**' + path + '/order', route => fulfillApi(route))
   await page.goto('/workflow/templates')
   await expect(page.getByText('请先创建业务范围，再新建流程模板。')).toBeVisible()
   const heading = page.locator('header').filter({ has: page.getByRole('heading', { name: '流程模板' }) })
@@ -240,4 +242,87 @@ test('shows the HTTP status for a failed publication and clears the alert after 
   await publish.click()
   await expect(page.getByText(/草稿已发布/)).toBeVisible()
   await expect(alert).toHaveCount(0)
+})
+
+test('version management reads history, restores a draft and controls new applications', async ({ page }) => {
+  const draft = await openTemplates(page, true, steps, true, true)
+  const versions = [
+    { version: 2, name: '采购审批', publishedAt: '2026-11-25T09:00:00Z', publishedBy: '1' },
+    { version: 1, name: '初版采购', publishedAt: '2026-11-24T09:00:00Z', publishedBy: '1' },
+  ]
+  await page.route('**' + path + '/order/versions', route => fulfillApi(route, { json: versions }))
+  await page.route('**' + path + '/order/versions/1', route => fulfillApi(route, {
+    json: { name: '初版采购', steps: [{ ...steps[0], name: '初版审批节点' }] },
+  }))
+  await page.route('**' + path + '/order/versions/1/restore', route => {
+    expect(route.request().postDataJSON()).toEqual({ revision: 7 })
+    Object.assign(draft, { revision: 8, dirty: true, name: '初版采购' })
+    return fulfillApi(route)
+  })
+  await page.route('**' + path + '/order/availability', route => {
+    expect(route.request().postDataJSON()).toEqual({ revision: 8, enabled: false })
+    Object.assign(draft, { revision: 9, enabled: false })
+    return fulfillApi(route)
+  })
+  await page.getByRole('button', { name: '版本管理' }).click()
+  await page.getByRole('button', { name: '查看 v1' }).click()
+  await expect(page.getByText(/初版审批节点/)).toBeVisible()
+  await page.getByRole('button', { name: '复制为待发布草稿' }).click()
+  await expect(page.getByText(/草稿待发布/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: '初版采购', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '版本管理' }).click()
+  await page.getByRole('button', { name: '停用新申请' }).click()
+  await expect(page.getByText(/已停用新申请/)).toBeVisible()
+  await expect(page.getByText(/已发布版本 2/)).toBeVisible()
+})
+
+test('configures role-based and department-manager approval nodes', async ({ page }) => {
+  await openTemplates(page, true, [steps[0], { ...steps[0], name: '财务会签' }], true)
+  await page.route('**' + path + '/reviewer-roles', route => fulfillApi(route, {
+    json: [{ id: '9', name: '财务审批', code: 'FINANCE' }],
+  }))
+  const canvas = page.getByTestId('bpmn-modeler')
+  const source = page.getByRole('combobox', { name: '审批人来源' })
+  await canvas.locator('.djs-shape[data-element-id="Task_0"] .djs-hit').first().click()
+  await source.selectOption('DEPARTMENT_MANAGER')
+  await expect(page.getByRole('combobox', { name: '审批模式' })).toBeDisabled()
+  await canvas.locator('.djs-shape[data-element-id="Task_1"] .djs-hit').first().click()
+  await source.selectOption('ROLE')
+  await page.getByRole('combobox', { name: '审批模式' }).selectOption('ALL')
+  await page.getByRole('textbox', { name: '审批角色' }).click()
+  await page.getByText('财务审批（FINANCE）', { exact: true }).click()
+  await page.getByRole('textbox', { name: '最低金额' }).fill('10000')
+  const request = page.waitForRequest(req => req.method() === 'PUT' && req.url().endsWith(path + '/order'))
+  await page.getByRole('button', { name: '保存草稿' }).click()
+  expect((await request).postDataJSON().steps).toMatchObject([
+    { reviewerSource: 'DEPARTMENT_MANAGER', approverIds: [], mode: 'SINGLE' },
+    { reviewerSource: 'ROLE', roleId: '9', approverIds: [], mode: 'ALL', minAmount: 10000 },
+  ])
+})
+
+test('saves and reloads an amount gateway with a real default connection', async ({ page }) => {
+  await openTemplates(page, true, steps, true)
+  await page.getByRole('button', { name: '添加条件分支' }).click()
+  const rules = page.getByRole('list', { name: '条件连线' })
+  await expect(rules.getByRole('button', { name: /默认分支.*审批结束/ })).toBeVisible()
+  await page.getByRole('combobox', { name: '分支条件' }).selectOption('GTE')
+  await page.getByRole('button', { name: '应用连线条件' }).click()
+  await expect(page.getByText('请输入非负金额，整数最多 16 位，小数最多两位')).toBeVisible()
+  await page.getByRole('textbox', { name: '条件金额' }).fill('10000.00')
+  await page.getByRole('button', { name: '应用连线条件' }).click()
+  await expect(rules.getByRole('button', { name: /金额 ≥ 10000.00/ })).toBeVisible()
+  await page.getByRole('list', { name: '审批节点' }).getByRole('button', { name: '条件审批' }).click()
+  await page.getByRole('combobox', { name: '审批人来源' }).selectOption('DEPARTMENT_MANAGER')
+  const request = page.waitForRequest(req => req.method() === 'PUT' && req.url().endsWith(path + '/order'))
+  await page.getByRole('button', { name: '保存草稿' }).click()
+  const routing = (await request).postDataJSON().diagramLayout.routing
+  expect(routing.gateways).toHaveLength(1)
+  expect(routing.links).toEqual(expect.arrayContaining([
+    expect.objectContaining({ operator: 'GTE', amount: '10000.00' }),
+    expect.objectContaining({ operator: 'DEFAULT', target: 'End_approval' }),
+  ]))
+  await expect(page.getByRole('button', { name: '发布版本' })).toBeEnabled()
+  await page.reload()
+  await expect(rules.getByRole('button', { name: /金额 ≥ 10000.00/ })).toBeVisible()
+  await expect(page.getByTestId('bpmn-modeler').locator('.djs-shape[data-element-id="' + routing.gateways[0].id + '"]')).toBeVisible()
 })

@@ -6,7 +6,7 @@ if (-not $env:AUTH_TEST_USERNAME -or -not $env:AUTH_TEST_PASSWORD) {
 }
 
 $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-$csrf = Invoke-RestMethod "$BaseUrl/api/auth/csrf" -WebSession $session
+$csrf = (Invoke-RestMethod "$BaseUrl/api/auth/csrf" -WebSession $session).data
 $headers = @{}
 $headers[$csrf.headerName] = $csrf.token
 $login = @{
@@ -17,14 +17,14 @@ $login = @{
     Body = @{ username = $env:AUTH_TEST_USERNAME; password = $env:AUTH_TEST_PASSWORD }
 }
 Invoke-RestMethod "$BaseUrl/api/auth/login" @login | Out-Null
-$csrf = Invoke-RestMethod "$BaseUrl/api/auth/csrf" -WebSession $session
+$csrf = (Invoke-RestMethod "$BaseUrl/api/auth/csrf" -WebSession $session).data
 $headers = @{}
 $headers[$csrf.headerName] = $csrf.token
 
 $url = "$BaseUrl/api/system/menus"
 $menu = $null
 try {
-    $all = Invoke-RestMethod $url -WebSession $session
+    $all = (Invoke-RestMethod $url -WebSession $session).data
     $builtIn = $all | Where-Object permissionCode -eq 'system:user:create'
     if ($builtIn.name -ne '新增用户' -or [string]::IsNullOrEmpty($builtIn.description)) {
         throw 'The seeded permission did not receive its display metadata.'
@@ -44,17 +44,17 @@ try {
         status = 'ENABLED'
     }
     $write = @{ WebSession = $session; Headers = $headers; ContentType = 'application/json; charset=utf-8' }
-    $menu = Invoke-RestMethod $url -Method Post @write -Body ($payload | ConvertTo-Json -Compress)
+    $menu = (Invoke-RestMethod $url -Method Post @write -Body ($payload | ConvertTo-Json -Compress)).data
     if ($menu.name -ne $payload.name -or $menu.description -ne $payload.description) {
         throw 'The create response did not preserve the Chinese name and description.'
     }
-    $listed = (Invoke-RestMethod "$BaseUrl/api/auth/menus" -WebSession $session) | Where-Object id -eq $menu.id
+    $listed = (Invoke-RestMethod "$BaseUrl/api/auth/menus" -WebSession $session).data | Where-Object id -eq $menu.id
     if ($listed.description -ne $payload.description) { throw 'The granted menu API did not return the stored description.' }
 
     $payload.name = '导出业务测试清单'
     $payload.description = '生成业务测试记录的下载清单。'
     $payload.version = $menu.version
-    $menu = Invoke-RestMethod "$url/$($menu.id)" -Method Put @write -Body ($payload | ConvertTo-Json -Compress)
+    $menu = (Invoke-RestMethod "$url/$($menu.id)" -Method Put @write -Body ($payload | ConvertTo-Json -Compress)).data
     if ($menu.name -ne $payload.name -or $menu.description -ne $payload.description) {
         throw 'The update response did not preserve the updated display metadata.'
     }
@@ -62,12 +62,12 @@ try {
     $expectedDescription = $payload.description
     $payload.Remove('description')
     $payload.version = $menu.version
-    $menu = Invoke-RestMethod "$url/$($menu.id)" -Method Put @write -Body ($payload | ConvertTo-Json -Compress)
+    $menu = (Invoke-RestMethod "$url/$($menu.id)" -Method Put @write -Body ($payload | ConvertTo-Json -Compress)).data
     if ($menu.description -ne $expectedDescription) { throw 'An older client silently removed the description.' }
 
     $payload.description = ''
     $payload.version = $menu.version
-    $menu = Invoke-RestMethod "$url/$($menu.id)" -Method Put @write -Body ($payload | ConvertTo-Json -Compress)
+    $menu = (Invoke-RestMethod "$url/$($menu.id)" -Method Put @write -Body ($payload | ConvertTo-Json -Compress)).data
     if ($null -ne $menu.description) { throw 'An explicitly blank description was not cleared.' }
     Write-Output 'PASS seeded metadata, create, read, update, omitted field, and clear'
 } finally {

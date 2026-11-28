@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import {onMounted, ref} from 'vue'
-import {NModal, NForm, NFormItem, NInput, NSelect, NButton} from 'naive-ui'
-import type {UserVO} from '@/types/user'
-import type {DeptVO} from '@/types/dept'
-import {createUser, updateUser} from '@/api/user'
-import {listDepts} from '@/api/dept'
-import {notice} from '@/api/http'
+import { onMounted, ref } from 'vue'
+import { NModal, NForm, NFormItem, NInput, NSelect, NButton } from 'naive-ui'
+import type { UserVO } from '@/types/user'
+import type { DeptVO } from '@/types/dept'
+import { createUser, updateUser } from '@/api/user'
+import { listDepts } from '@/api/dept'
+import { notice } from '@/api/http'
 
 const props = defineProps<{ user: UserVO | null }>()
 const emit = defineEmits<{ saved: []; close: [] }>()
@@ -53,17 +53,17 @@ async function save() {
           @update:show="value => { if (!value) emit('close') }">
     <NForm @submit.prevent="save">
       <NFormItem label="账号（小写字母开头，3～32位）" required>
-        <NInput v-model:value="username" :disabled="!!user"/>
+        <NInput v-model:value="username" :disabled="!!user" />
       </NFormItem>
       <NFormItem label="姓名" required>
-        <NInput v-model:value="nickname"/>
+        <NInput v-model:value="nickname" />
       </NFormItem>
       <NFormItem v-if="!user" label="初始密码（12～64字符）" required>
-        <NInput v-model:value="password" type="password" autocomplete="new-password"/>
+        <NInput v-model:value="password" type="password" autocomplete="new-password" />
       </NFormItem>
       <NFormItem label="部门" required>
         <NSelect v-model:value="deptId"
-                 :options="depts.map(row => ({ label: row.name, value: row.id, disabled: !row.selectable }))"/>
+                 :options="depts.map(row => ({ label: row.name, value: row.id, disabled: !row.selectable }))" />
       </NFormItem>
       <NButton attr-type="submit" type="primary" :loading="busy">保存</NButton>
     </NForm>

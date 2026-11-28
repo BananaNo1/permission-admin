@@ -1,9 +1,9 @@
 package com.leis.permission.auth;
 
+import com.leis.common.common.ApiResponse;
 import com.leis.permission.SessionUser;
 import com.leis.permission.log.service.AuditService;
 import com.leis.permission.user.entity.User;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -17,9 +17,11 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
 
-import java.io.IOException;
 import java.util.Locale;
 
+/**
+ * 装配登录、退出、访问控制和错误响应所需的 Spring Security 过滤链。
+ */
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -53,19 +55,19 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain security(HttpSecurity http, UserDetailsService details,
                                  PasswordEncoder encoder, AuthorizationService authorization, AuditService audit,
-                                 LoginThrottle throttle)
+                                 LoginThrottle throttle, ApiResponseWriter responses)
             throws Exception {
         var provider = new DaoAuthenticationProvider(details);
         provider.setPasswordEncoder(encoder);
         http.authenticationProvider(provider);
-        http.addFilterBefore(throttle.filter(), UsernamePasswordAuthenticationFilter.class);
-        http.addFilterAfter(new RequestFilter(authorization, audit), SecurityContextHolderFilter.class);
+        http.addFilterBefore(throttle.filter(responses), UsernamePasswordAuthenticationFilter.class);
+        http.addFilterAfter(new RequestFilter(authorization, audit, responses), SecurityContextHolderFilter.class);
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/csrf", "/api/auth/login", "/error").permitAll()
                 .anyRequest().authenticated());
         http.exceptionHandling(errors -> errors
-                .authenticationEntryPoint((req, res, e) -> error(res, 401, "请先登录"))
-                .accessDeniedHandler((req, res, e) -> error(res, 403, "权限或 CSRF 校验失败")));
+                .authenticationEntryPoint((req, res, e) -> responses.error(res, 401, "请先登录"))
+                .accessDeniedHandler((req, res, e) -> responses.error(res, 403, "权限或 CSRF 校验失败")));
 
         http.formLogin(form -> form.loginProcessingUrl("/api/auth/login")
                 .successHandler((req, res, auth) -> {
@@ -73,34 +75,23 @@ public class SecurityConfig {
                     var user = (SessionUser) auth.getPrincipal();
                     audit.login(user.username(), user.id(), true, req.getRemoteAddr(), (String) req.getAttribute(
                             "traceId"));
-                    res.setContentType("application/json;charset=UTF-8");
-                    res.getWriter().write("{}");
+                    responses.write(res, ApiResponse.ok());
                 })
                 .failureHandler((req, res, e) -> {
                     throttle.failed(req);
                     String name = req.getParameter("username");
                     name = name == null ? "" : name.substring(0, Math.min(name.length(), 32));
                     audit.login(name, null, false, req.getRemoteAddr(), (String) req.getAttribute("traceId"));
-                    error(res, 401, "账号或密码错误");
+                    responses.error(res, 401, "账号或密码错误");
                 })
         );
 
         http.logout(logout -> logout.logoutUrl("/api/auth/logout").deleteCookies("SESSION")
                 .logoutSuccessHandler((req, res, auth) -> {
-                    res.setContentType("application/json;charset=UTF-8");
-                    res.getWriter().write("{}");
+                    responses.write(res, ApiResponse.ok());
                 }));
 
         return http.build();
-    }
-
-    /**
-     * 以 JSON 格式写入安全过滤链所需的状态码和错误提示。
-     */
-    static void error(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
-        response.setContentType("application/json;charset=UTF-8");
-        response.getWriter().write("{\"message\":\"" + message + "\"}");
     }
 
 }

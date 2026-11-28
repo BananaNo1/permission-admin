@@ -4,6 +4,9 @@ import com.leis.common.common.BusinessException;
 
 import java.nio.charset.StandardCharsets;
 
+/**
+ * 集中定义账号密码的输入约束，供初始化和密码变更使用。
+ */
 public final class PasswordPolicy {
 
     /**

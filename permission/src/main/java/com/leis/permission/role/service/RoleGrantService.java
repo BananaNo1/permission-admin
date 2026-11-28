@@ -1,6 +1,6 @@
 package com.leis.permission.role.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.leis.common.common.BusinessException;
 import com.leis.permission.auth.PermissionChecker;
 import com.leis.permission.log.service.AuditService;
@@ -19,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.HashMap;
 import java.util.List;
 
+/**
+ * 读取和更新角色菜单授权，并处理父级菜单关系。
+ */
 @Service
 @RequiredArgsConstructor
 public class RoleGrantService {
@@ -37,7 +40,7 @@ public class RoleGrantService {
         if (roleMapper.selectById(id) == null) {
             throw new BusinessException(404, "角色不存在");
         }
-        return roleMenuMapper.selectList(new QueryWrapper<RoleMenu>().eq("role_id", id))
+        return roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>().eq(RoleMenu::getRoleId, id))
                 .stream().map(row -> row.getMenuId().toString()).toList();
     }
 
@@ -65,7 +68,7 @@ public class RoleGrantService {
                 throw new BusinessException(400, "请同时选择全部菜单祖先");
             }
         }
-        roleMenuMapper.delete(new QueryWrapper<RoleMenu>().eq("role_id", id));
+        roleMenuMapper.delete(new LambdaQueryWrapper<RoleMenu>().eq(RoleMenu::getRoleId, id));
         for (Long menuId : request.menuIds()) {
             RoleMenu link = new RoleMenu();
             link.setRoleId(id);

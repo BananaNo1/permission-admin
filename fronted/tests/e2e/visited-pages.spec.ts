@@ -1,30 +1,36 @@
 import { expect, test } from '@playwright/test'
+import { fulfillApi } from './api-response'
 import type { Page } from '@playwright/test'
 
-const userPage = { id: '10', parentId: '1', name: '用户管理', type: 'PAGE', visible: true, path: '/system/users', routeName: 'SystemUser', componentKey: 'system/user' }
+const userPage = { id: '10', parentId: '1', name: '用户管理', description: '来自菜单配置的说明', type: 'PAGE', visible: true, path: '/system/users', routeName: 'SystemUser', componentKey: 'system/user' }
 const rolePage = { id: '16', parentId: '1', name: '角色管理', type: 'PAGE', visible: true, path: '/system/roles', routeName: 'SystemRole', componentKey: 'system/role' }
 
 const deptPage = { id: '22', parentId: '1', name: '部门管理', type: 'PAGE', visible: true, path: '/system/depts', routeName: 'SystemDept', componentKey: 'system/dept' }
 
 async function mockPermissions(page: Page) {
   let menus = [userPage, rolePage, deptPage]
-  await page.route('**/api/auth/me', route => route.fulfill({
-    json: { id: '1', username: 'tab-test', deptId: '1', admin: true, permissions: [] },
-  }))
-  await page.route('**/api/auth/menus', route => route.fulfill({
-    json: [{ id: '1', parentId: null, type: 'DIR', name: '系统管理', visible: true }, ...menus],
-  }))
-  await page.route(url => url.pathname === '/api/system/users', route => route.fulfill({
+  const loads = { identity: 0, menus: 0 }
+  await page.route('**/api/auth/me', route => {
+    loads.identity++
+    return fulfillApi(route, { json: { id: '1', username: 'tab-test', deptId: '1', admin: true, permissions: [] } })
+  })
+  await page.route('**/api/auth/menus', route => {
+    loads.menus++
+    return fulfillApi(route, { json: [{ id: '1', parentId: null, type: 'DIR', name: '系统管理', visible: true }, ...menus] })
+  })
+  await page.route(url => url.pathname === '/api/system/users', route => fulfillApi(route, {
     json: { records: [], total: 0, page: 1, pageSize: 20 },
   }))
-  await page.route('**/api/system/roles', route => route.fulfill({ json: [] }))
-  await page.route('**/api/system/depts', route => route.fulfill({ json: [] }))
-  return { revokeRoles: () => { menus = [userPage] } }
+  await page.route('**/api/system/roles', route => fulfillApi(route, { json: [] }))
+  await page.route('**/api/system/depts', route => fulfillApi(route, { json: [] }))
+  return { loads, revokeRoles: () => { menus = [userPage] } }
 }
 
 test('opens, switches and closes pages while keeping home pinned', async ({ page }) => {
   await mockPermissions(page)
   await page.goto('/')
+  await expect(page.getByRole('link', { name: '用户管理 来自菜单配置的说明' })).toBeVisible()
+  await expect(page.getByText('角色与菜单授权', { exact: true })).toHaveCount(0)
   const tabs = page.getByRole('navigation', { name: '已访问页面' })
   const sidebar = page.getByRole('navigation', { name: '后台导航' })
   await expect(tabs.getByRole('link', { name: '首页' })).toBeVisible()
@@ -56,10 +62,13 @@ test('opens a direct link and drops a page after its permission is revoked', asy
   await tabs.getByRole('link', { name: '首页' }).click()
   await page.getByRole('link', { name: /角色管理/ }).click()
   await expect(tabs.getByRole('link', { name: '角色管理' })).toHaveAttribute('aria-current', 'page')
+  expect(permissions.loads).toEqual({ identity: 1, menus: 1 })
   permissions.revokeRoles()
+  await page.clock.setFixedTime(new Date(Date.now() + 31_000))
   await tabs.getByRole('link', { name: '用户管理' }).click()
   await expect(page).toHaveURL(/\/system\/users\?source=bookmark#list$/)
   await expect(tabs.getByRole('link', { name: '角色管理' })).toHaveCount(0)
+  expect(permissions.loads).toEqual({ identity: 2, menus: 2 })
 })
 
 test('right-click closes tabs relative to the selected tab and keeps home pinned', async ({ page }) => {

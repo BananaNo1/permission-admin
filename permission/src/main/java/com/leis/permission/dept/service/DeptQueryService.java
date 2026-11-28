@@ -11,6 +11,9 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * 查询部门子树和上级链，为数据范围与部门有效性判断提供支持。
+ */
 @Service
 @RequiredArgsConstructor
 public class DeptQueryService {
@@ -51,5 +54,14 @@ public class DeptQueryService {
             id = row.getParentId();
         }
         return true;
+    }
+
+    /** 查询启用部门配置的负责人标识。 */
+    public Long managerId(Long deptId) {
+        if (deptId == null || !activeDept(deptId)) {
+            return null;
+        }
+        var dept = deptMapper.selectById(deptId);
+        return dept == null ? null : dept.getManagerUserId();
     }
 }

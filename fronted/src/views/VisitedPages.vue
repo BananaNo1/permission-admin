@@ -21,7 +21,7 @@ const context = ref<{ name: string | null; x: number; y: number }>({ name: null,
 const bar = ref<HTMLElement | null>(null)
 const menus = computed(() => new Map(auth.menus
   .filter(menu => menu.type === 'PAGE' && menu.visible && menu.path && menu.routeName
-    && (auth.me?.admin || ['system/user','workflow/templates'].includes(menu.componentKey ?? '')))
+    && (auth.me?.admin || ['system/user', 'workflow/templates'].includes(menu.componentKey ?? '')))
   .map(menu => [`menu-${menu.id}`, menu])))
 
 const tabs = computed(() => history.value.flatMap(visit => {

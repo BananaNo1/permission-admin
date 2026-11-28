@@ -1,6 +1,6 @@
 package com.leis.permission.user.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.leis.common.common.BusinessException;
 import com.leis.permission.auth.PermissionChecker;
 import com.leis.permission.log.service.AuditService;
@@ -17,6 +17,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * 维护用户角色关联，校验角色有效性及超级管理员保护规则。
+ */
 @Service
 @RequiredArgsConstructor
 public class UserRoleService {
@@ -36,7 +39,7 @@ public class UserRoleService {
         if (userMapper.selectById(userId) == null) {
             throw new BusinessException(404, "用户不存在");
         }
-        return userRoleMapper.selectList(new QueryWrapper<UserRole>().eq("user_id", userId))
+        return userRoleMapper.selectList(new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, userId))
                 .stream().map(row -> row.getRoleId().toString()).toList();
     }
 
@@ -52,12 +55,12 @@ public class UserRoleService {
                 throw new BusinessException(400, "角色不存在");
             }
         if (user.getProtectedAccount()) {
-            Role root = roleMapper.selectOne(new QueryWrapper<Role>().eq("code", "SUPER_ADMIN"));
+            Role root = roleMapper.selectOne(new LambdaQueryWrapper<Role>().eq(Role::getCode, "SUPER_ADMIN"));
             if (!request.roleIds().contains(root.getId())) {
                 throw new BusinessException(400, "初始管理员必须保留内置角色");
             }
         }
-        userRoleMapper.delete(new QueryWrapper<UserRole>().eq("user_id", userId));
+        userRoleMapper.delete(new LambdaQueryWrapper<UserRole>().eq(UserRole::getUserId, userId));
         for (Long roleId : request.roleIds()) {
             UserRole link = new UserRole();
             link.setUserId(userId);

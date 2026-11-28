@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
+import { fulfillApi } from './api-response'
 
 const roles = [
   { id: '1', name: '超级管理员', code: 'SUPER_ADMIN', status: 'ENABLED', dataScope: 'ALL', version: 1 },
@@ -16,14 +17,14 @@ const menus = [
 ]
 
 async function mockAuthorization(page: Page) {
-  await page.route('**/api/auth/me', route => route.fulfill({
+  await page.route('**/api/auth/me', route => fulfillApi(route, {
     json: { id: '1', username: 'grant-test', deptId: '1', admin: true, permissions: [] },
   }))
-  await page.route('**/api/auth/menus', route => route.fulfill({ json: menus }))
-  await page.route('**/api/auth/csrf', route => route.fulfill({ json: { token: 'test-token', headerName: 'X-CSRF-TOKEN' } }))
-  await page.route('**/api/system/roles', route => route.fulfill({ json: roles }))
-  await page.route('**/api/system/menus', route => route.fulfill({ json: menus }))
-  await page.route(url => url.pathname === '/api/system/users', route => route.fulfill({
+  await page.route('**/api/auth/menus', route => fulfillApi(route, { json: menus }))
+  await page.route('**/api/auth/csrf', route => fulfillApi(route, { json: { token: 'test-token', headerName: 'X-CSRF-TOKEN' } }))
+  await page.route('**/api/system/roles', route => fulfillApi(route, { json: roles }))
+  await page.route('**/api/system/menus', route => fulfillApi(route, { json: menus }))
+  await page.route(url => url.pathname === '/api/system/users', route => fulfillApi(route, {
     json: { records: [{ id: '15', username: 'operator', nickname: '测试用户', deptId: '1', status: 'ENABLED', version: 5 }], total: 1, page: 1, pageSize: 20 },
   }))
 }
@@ -31,7 +32,7 @@ async function mockAuthorization(page: Page) {
 test('filters roles, previews changes and excludes privileged roles from batch grants', async ({ page }) => {
   await mockAuthorization(page)
   await page.route('**/api/system/users/15/roles', route => route.request().method() === 'GET'
-    ? route.fulfill({ json: ['2'] }) : route.fulfill({ status: 200 }))
+    ? fulfillApi(route, { json: ['2'] }) : fulfillApi(route, { status: 200 }))
   await page.goto('/system/users')
   await page.getByRole('button', { name: '分配角色', exact: true }).click()
 
@@ -63,7 +64,7 @@ test('filters roles, previews changes and excludes privileged roles from batch g
 test('selects permissions exactly and previews the required ancestors before saving', async ({ page }) => {
   await mockAuthorization(page)
   await page.route('**/api/system/roles/3/menus', route => route.request().method() === 'GET'
-    ? route.fulfill({ json: ['1', '16'] }) : route.fulfill({ status: 200 }))
+    ? fulfillApi(route, { json: ['1', '16'] }) : fulfillApi(route, { status: 200 }))
   await page.goto('/system/roles')
   await page.getByRole('row').filter({ hasText: 'OPS_WRITE' }).getByRole('button', { name: '授权', exact: true }).click()
 

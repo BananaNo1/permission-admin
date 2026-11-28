@@ -1,5 +1,5 @@
-import {api} from './http'
-import type {DeptVO, DeptCreateRequest, DeptUpdateRequest} from '@/types/dept'
+import { api } from './http'
+import type { DeptVO, DeptCreateRequest, DeptUpdateRequest } from '@/types/dept'
 
 const root = '/system/depts'
 
@@ -13,6 +13,11 @@ export function createDept(body: DeptCreateRequest) {
 
 export function updateDept(id: string, body: DeptUpdateRequest) {
     return api<DeptVO>(root + '/' + id, 'PUT', body)
+}
+
+export function managerCandidates(id: string, keyword: string) {
+    return api<{ id: string; username: string; nickname: string }[]>(root + '/' + encodeURIComponent(id)
+        + '/manager-candidates?' + new URLSearchParams({ keyword }))
 }
 
 export function deleteDept(id: string, version: number) {

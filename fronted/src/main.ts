@@ -1,8 +1,9 @@
-import {createApp} from 'vue'
-import {createPinia} from 'pinia'
+import { createApp } from 'vue'
+import { createPinia } from 'pinia'
 import App from './App.vue'
-import router, {clearRoutes} from './router'
-import {useAuth} from '@/stores/auth'
+import router, { clearRoutes, refreshCurrentRoute } from './router'
+import { AUTHORIZATION_CHANGED } from '@/api/http'
+import { useAuth } from '@/stores/auth'
 import './style.css'
 
 const app = createApp(App)
@@ -13,10 +14,9 @@ window.addEventListener('session-expired', () => {
     clearRoutes()
     if (router.currentRoute.value.path !== '/login') void router.replace('/login')
 })
-window.addEventListener('focus', () => {
-    if (useAuth().me) {
-        clearRoutes()
-        void router.replace(router.currentRoute.value.fullPath)
-    }
+window.addEventListener('focus', () => { void refreshCurrentRoute() })
+window.addEventListener(AUTHORIZATION_CHANGED, () => {
+    useAuth().invalidate()
+    void refreshCurrentRoute()
 })
 app.mount('#app')

@@ -5,7 +5,8 @@ export interface DeptVO {
     sortOrder: number;
     status: string;
     version: number;
-    selectable: boolean
+    selectable: boolean;
+    managerUserId?: string | null
 }
 
 export interface DeptCreateRequest {
@@ -16,5 +17,6 @@ export interface DeptCreateRequest {
 
 export interface DeptUpdateRequest extends DeptCreateRequest {
     status: string;
-    version: number
+    version: number;
+    managerAssignment?: { userId: string | null }
 }

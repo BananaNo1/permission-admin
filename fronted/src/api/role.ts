@@ -1,5 +1,5 @@
-import {api} from './http'
-import type {RoleVO, RoleCreateRequest, RoleUpdateRequest, RoleStatusRequest, RoleGrantRequest} from '@/types/role'
+import { api, changesAuthorization } from './http'
+import type { RoleVO, RoleCreateRequest, RoleUpdateRequest, RoleStatusRequest, RoleGrantRequest } from '@/types/role'
 
 const root = '/system/roles'
 
@@ -16,7 +16,7 @@ export function updateRole(id: string, body: RoleUpdateRequest) {
 }
 
 export function changeRoleStatus(id: string, body: RoleStatusRequest) {
-    return api<void>(root + '/' + id + '/status', 'PUT', body)
+    return changesAuthorization(api<void>(root + '/' + id + '/status', 'PUT', body))
 }
 
 export function listRoleMenuIds(id: string) {
@@ -24,9 +24,9 @@ export function listRoleMenuIds(id: string) {
 }
 
 export function grantRoleMenus(id: string, body: RoleGrantRequest) {
-    return api<void>(root + '/' + id + '/menus', 'PUT', body)
+    return changesAuthorization(api<void>(root + '/' + id + '/menus', 'PUT', body))
 }
 
 export function deleteRole(id: string, version: number) {
-    return api<void>(root + '/' + id + '?version=' + version, 'DELETE')
+    return changesAuthorization(api<void>(root + '/' + id + '?version=' + version, 'DELETE'))
 }

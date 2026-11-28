@@ -18,6 +18,9 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * 限制连续失败的登录尝试，并在成功登录后清理失败记录。
+ */
 @Component
 public class LoginThrottle {
 
@@ -83,7 +86,7 @@ public class LoginThrottle {
     /**
      * 构建在密码认证前执行的登录限流过滤器。
      */
-    public OncePerRequestFilter filter(){
+    public OncePerRequestFilter filter(ApiResponseWriter responses) {
         return new OncePerRequestFilter() {
 
             /**
@@ -94,11 +97,11 @@ public class LoginThrottle {
                 if (request.getRequestURI().equals("/api/auth/login")
                         && request.getMethod().equals("POST")
                         && (limited(key("user", username(request)))
-                        || limited(key("ip", request.getRemoteAddr())))){
+                        || limited(key("ip", request.getRemoteAddr())))) {
                     String name = username(request);
-                    auditService.login(name.substring(0,Math.min(name.length(),32)),null,false,
-                            request.getRemoteAddr(),(String)request.getAttribute("traceId"));
-                    SecurityConfig.error(response, 429, "登录尝试过多，请15分钟后重试");
+                    auditService.login(name.substring(0, Math.min(name.length(), 32)), null, false,
+                            request.getRemoteAddr(), (String)request.getAttribute("traceId"));
+                    responses.error(response, 429, "登录尝试过多，请15分钟后重试");
                     return;
                 }
                 filterChain.doFilter(request, response);

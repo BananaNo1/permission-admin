@@ -9,6 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 校验原密码并更新登录用户的密码和会话授权版本。
+ */
 @Service
 @RequiredArgsConstructor
 public class PasswordChangeService {

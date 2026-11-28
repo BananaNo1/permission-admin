@@ -5,6 +5,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+/**
+ * 提供当前请求中已经解析的登录身份，供服务层执行权限检查。
+ */
 @Component
 public class CurrentActor {
     /**

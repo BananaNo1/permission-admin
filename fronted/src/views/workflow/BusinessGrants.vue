@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { NAlert, NButton, NCard, NCheckbox, NInput, NSpace, NTable } from 'naive-ui'
-import { api } from '@/api/http'
+import { createWorkflowBusiness, listWorkflowGrants, setWorkflowGrant } from '@/api/workflowBusiness'
+import type { WorkflowGrant as Grant, WorkflowRights as Rights } from '@/types/workflow'
 import { useAuth } from '@/stores/auth'
 
-type Rights = { edit: boolean; publish: boolean; start: boolean }
-type Grant = Rights & { userId: string | number }
 const props = defineProps<{ business: string }>()
 const emit = defineEmits<{ changed: [code: string] }>()
 const auth = useAuth()
@@ -20,8 +19,6 @@ const busy = ref(false)
 const loading = ref(false)
 const message = ref('')
 const failed = ref(false)
-const root = '/workflow/businesses'
-const grantsPath = (business: string) => root + '/' + encodeURIComponent(business) + '/grants'
 let generation = 0
 
 defineExpose({ focusBusinessCode: () => businessCodeInput.value?.focus() })
@@ -37,7 +34,7 @@ async function reload() {
     if (!admin.value || !props.business) return
     loading.value = true
     try {
-        const rows = await api<Grant[]>(grantsPath(props.business))
+        const rows = await listWorkflowGrants(props.business)
         if (version === generation) grants.value = rows
     } catch (error) {
         if (version === generation) report(error)
@@ -59,7 +56,7 @@ async function create() {
     const businessCode = code.value.trim()
     busy.value = true
     try {
-        await api(root, 'POST', { code: businessCode, name: name.value.trim() })
+        await createWorkflowBusiness({ code: businessCode, name: name.value.trim() })
         code.value = ''
         name.value = ''
         failed.value = false
@@ -79,7 +76,7 @@ async function save(id: string, flags: Rights) {
     const business = props.business
     busy.value = true
     try {
-        await api(grantsPath(business) + '/' + id, 'PUT', { ...flags })
+        await setWorkflowGrant(business, id, { ...flags })
         if (business !== props.business) return
         failed.value = false
         message.value = '业务权限已更新'
@@ -117,7 +114,7 @@ async function save(id: string, flags: Rights) {
               <td>{{ row.publish ? '有' : '无' }}</td><td>{{ row.start ? '有' : '无' }}</td>
               <td><NSpace>
                 <NButton size="small" :disabled="busy" @click="select(row)">修改</NButton>
-                <NButton size="small" type="error" ghost :disabled="busy" @click="save(String(row.userId), {edit:false,publish:false,start:false})">撤销全部</NButton>
+                <NButton size="small" type="error" ghost :disabled="busy" @click="save(String(row.userId), { edit: false, publish: false, start: false })">撤销全部</NButton>
               </NSpace></td>
             </tr>
           </tbody>

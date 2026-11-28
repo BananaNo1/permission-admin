@@ -1,6 +1,6 @@
 package com.leis.permission.user.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.leis.common.common.BusinessException;
 import com.leis.common.common.PageResult;
@@ -23,6 +23,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
+/**
+ * 提供用户分页、详情及账号维护，协调权限校验和审计记录。
+ */
 @Service
 @RequiredArgsConstructor
 public class UserService {
@@ -48,9 +51,9 @@ public class UserService {
         var query = scope.scoped(current.get());
         if (keyword != null && !keyword.isBlank()) {
             String escaped = keyword.trim().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-            query.and(filter -> filter.like("username", escaped).or().like("nickname", escaped));
+            query.and(filter -> filter.like(User::getUsername, escaped).or().like(User::getNickname, escaped));
         }
-        query.orderByDesc("id");
+        query.orderByDesc(User::getId);
         Page<User> result = userMapper.selectPage(new Page<>(page, pageSize), query);
         return new PageResult<>(result.getRecords().stream().map(UserVO::from).toList(), result.getTotal(), page,
                 pageSize);
@@ -61,8 +64,10 @@ public class UserService {
      */
     public UserVO detail(Long id) {
         permissions.require("system:user:query");
-        User row = userMapper.selectOne(scope.scoped(current.get()).eq("id", id));
-        if (row == null) throw new BusinessException(404, "用户不存在或不可访问");
+        User row = userMapper.selectOne(scope.scoped(current.get()).eq(User::getId, id));
+        if (row == null) {
+            throw new BusinessException(404, "用户不存在或不可访问");
+        }
         return UserVO.from(row);
     }
 
@@ -134,11 +139,12 @@ public class UserService {
     public void delete(Long id, Integer version) {
         permissions.require("system:user:delete");
         User row = access.writable(id, version);
-        if (row.getProtectedAccount() || Objects.equals(id, current.get().id()))
+        if (row.getProtectedAccount() || Objects.equals(id, current.get().id())) {
             throw new BusinessException(400, "该账号不能删除");
-        VersionGuard.updated(userMapper.delete(new QueryWrapper<User>()
-                .eq("id", id)
-                .eq("version", version)));
+        }
+        VersionGuard.updated(userMapper.delete(new LambdaQueryWrapper<User>()
+                .eq(User::getId, id)
+                .eq(User::getVersion, version)));
         audit.record("USER_DELETE", id);
     }
 }

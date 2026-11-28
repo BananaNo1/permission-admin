@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {NResult, NButton} from 'naive-ui'
+import { NResult, NButton } from 'naive-ui'
 
 defineProps<{ code: string; title: string }>()
 </script>

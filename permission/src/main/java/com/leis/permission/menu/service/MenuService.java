@@ -1,6 +1,6 @@
 package com.leis.permission.menu.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.leis.common.common.BusinessException;
 import com.leis.permission.auth.PermissionChecker;
 import com.leis.permission.log.service.AuditService;
@@ -20,6 +20,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * 维护目录、页面和权限项，校验层级、路由与并发修改约束。
+ */
 @Service
 @RequiredArgsConstructor
 public class MenuService {
@@ -34,7 +37,7 @@ public class MenuService {
      */
     public List<MenuVO> list() {
         permissions.requireAdmin();
-        return menuMapper.selectList(new QueryWrapper<Menu>().orderByAsc("sort_order", "id")).stream().map(MenuVO::from).toList();
+        return menuMapper.selectList(new LambdaQueryWrapper<Menu>().orderByAsc(Menu::getSortOrder, Menu::getId)).stream().map(MenuVO::from).toList();
     }
 
 
@@ -111,10 +114,10 @@ public class MenuService {
         if (id.equals(1L)) {
             throw new BusinessException(400, "系统目录不能删除");
         }
-        if (menuMapper.selectCount(new QueryWrapper<Menu>().eq("parent_id", id)) > 0) {
+        if (menuMapper.selectCount(new LambdaQueryWrapper<Menu>().eq(Menu::getParentId, id)) > 0) {
             throw new BusinessException(409, "请先删除子菜单");
         }
-        VersionGuard.updated(menuMapper.delete(new QueryWrapper<Menu>().eq("id", id).eq("version", version)));
+        VersionGuard.updated(menuMapper.delete(new LambdaQueryWrapper<Menu>().eq(Menu::getId, id).eq(Menu::getVersion, version)));
         audit.record("MENU_DELETE", id);
     }
 
@@ -147,7 +150,7 @@ public class MenuService {
             }
         }
         if (previousType != null && !previousType.equals(row.getType())
-                && menuMapper.selectCount(new QueryWrapper<Menu>().eq("parent_id", row.getId())) > 0) {
+                && menuMapper.selectCount(new LambdaQueryWrapper<Menu>().eq(Menu::getParentId, row.getId())) > 0) {
             throw new BusinessException(409, "请先移除子节点再修改类型");
         }
         if (!"DIRECTORY".equals(row.getType()) && (row.getPermissionCode() == null
@@ -156,15 +159,18 @@ public class MenuService {
         }
         if ("PAGE".equals(row.getType())) {
             if (row.getComponentKey() == null || !Set.of("system/user", "system/role", "system/dept",
-                    "system/menu", "audit/login", "audit/operation", "workflow/templates").contains(row.getComponentKey())) {
+                    "system/menu", "audit/login", "audit/operation", "workflow/templates",
+                    "workflow/tasks", "workflow/completed", "workflow/applications", "workflow/operations").contains(row.getComponentKey())) {
                 throw new BusinessException(400, "页面组件键无效");
             }
             if (row.getPath() == null || !row.getPath().matches("/(system|audit|workflow)/[a-z-]+")
                     || row.getRouteName() == null || !row.getRouteName().matches("[A-Za-z][A-Za-z0-9]{1,99}")) {
                 throw new BusinessException(400, "路由路径或名称无效");
             }
-            var duplicate = new QueryWrapper<Menu>().eq("path", row.getPath());
-            if (row.getId() != null) duplicate.ne("id", row.getId());
+            var duplicate = new LambdaQueryWrapper<Menu>().eq(Menu::getPath, row.getPath());
+            if (row.getId() != null) {
+                duplicate.ne(Menu::getId, row.getId());
+            }
             if (menuMapper.selectCount(duplicate) > 0) {
                 throw new BusinessException(409, "路由路径重复");
             }

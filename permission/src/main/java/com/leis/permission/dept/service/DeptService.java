@@ -1,12 +1,14 @@
 package com.leis.permission.dept.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.leis.common.common.BusinessException;
 import com.leis.permission.auth.CurrentActor;
 import com.leis.permission.auth.PermissionChecker;
 import com.leis.permission.dept.entity.Dept;
 import com.leis.permission.dept.mapper.DeptMapper;
 import com.leis.permission.dept.vo.DeptCreateRequest;
+import com.leis.permission.dept.vo.DeptManagerCandidate;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.leis.permission.dept.vo.DeptUpdateRequest;
 import com.leis.permission.dept.vo.DeptVO;
 import com.leis.permission.log.service.AuditService;
@@ -22,6 +24,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * 维护部门树，并校验层级、账号引用和并发修改约束。
+ */
 @Service
 @RequiredArgsConstructor
 public class DeptService {
@@ -38,10 +43,14 @@ public class DeptService {
      */
     public List<DeptVO> list() {
         var actor = current.get();
-        var all = deptMapper.selectList(new QueryWrapper<Dept>().orderByAsc("sort_order", "id"));
+        var all = deptMapper.selectList(new LambdaQueryWrapper<Dept>().orderByAsc(Dept::getSortOrder, Dept::getId));
         var selectable = new HashSet<Long>(actor.deptIds());
-        if (actor.includeSelf()) selectable.add(actor.deptId());
-        if (actor.all()) all.forEach(row -> selectable.add(row.getId()));
+        if (actor.includeSelf()) {
+            selectable.add(actor.deptId());
+        }
+        if (actor.all()) {
+            all.forEach(row -> selectable.add(row.getId()));
+        }
         var visible = new HashSet<Long>(selectable);
         var byId = new HashMap<Long, Dept>();
         all.forEach(row -> byId.put(row.getId(), row));
@@ -88,14 +97,16 @@ public class DeptService {
         permissions.requireAdmin();
         deptMapper.lockTree();
         Dept row = deptMapper.selectById(id);
-        if (row == null) throw new BusinessException(404, "部门不存在");
+        if (row == null) {
+            throw new BusinessException(404, "部门不存在");
+        }
         VersionGuard.check(row.getVersion(), request.version());
         validateParent(id, request.parentId());
         if (id.equals(1L) && !"ENABLED".equals(request.status())) {
             throw new BusinessException(400, "根部门保持启用");
         }
-        if ("DISABLED".equals(request.status()) && userMapper.selectCount(new QueryWrapper<User>().in("dept_id",
-                query.subtree(id)).eq("status", "ENABLED")) > 0) {
+        if ("DISABLED".equals(request.status()) && userMapper.selectCount(new LambdaQueryWrapper<User>().in(User::getDeptId,
+                query.subtree(id)).eq(User::getStatus, "ENABLED")) > 0) {
             throw new BusinessException(409, "部门子树仍有启用用户");
         }
         if ("ENABLED".equals(request.status()) && request.parentId() != null && !query.activeDept(request.parentId())) {
@@ -105,9 +116,36 @@ public class DeptService {
         row.setName(request.name());
         row.setSortOrder(request.sortOrder());
         row.setStatus(request.status());
+        if (request.managerAssignment() != null) {
+            Long managerId = request.managerAssignment().userId();
+            if (managerId != null) {
+                var manager = userMapper.selectById(managerId);
+                if (manager == null || !"ENABLED".equals(manager.getStatus()) || !id.equals(manager.getDeptId())) {
+                    throw new BusinessException(400, "请选择本部门的启用用户担任负责人");
+                }
+            }
+            row.setManagerUserId(managerId);
+        }
         VersionGuard.updated(deptMapper.updateById(row));
         audit.record("DEPT_UPDATE", id);
         return DeptVO.from(row, query.activeDept(id));
+    }
+
+    /** 按账号或姓名搜索当前部门的启用成员，供管理员配置负责人。 */
+    public List<DeptManagerCandidate> managerCandidates(Long id, String keyword) {
+        permissions.requireAdmin();
+        String term = keyword.strip();
+        if (term.length() > 64) {
+            throw new BusinessException(400, "负责人搜索关键词过长");
+        }
+        var filter = new LambdaQueryWrapper<User>().eq(User::getDeptId, id).eq(User::getStatus, "ENABLED");
+        if (!term.isEmpty()) {
+            String escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+            filter.and(search -> search.like(User::getNickname, escaped).or().like(User::getUsername, escaped));
+        }
+        filter.orderByAsc(User::getNickname, User::getUsername, User::getId);
+        return userMapper.selectPage(new Page<>(1, 30, false), filter).getRecords().stream()
+                .map(user -> new DeptManagerCandidate(user.getId().toString(), user.getNickname(), user.getUsername())).toList();
     }
 
     /**
@@ -125,10 +163,10 @@ public class DeptService {
         if (id.equals(1L)) {
             throw new BusinessException(400, "根部门不能删除");
         }
-        if (deptMapper.selectCount(new QueryWrapper<Dept>().eq("parent_id", id)) > 0) {
+        if (deptMapper.selectCount(new LambdaQueryWrapper<Dept>().eq(Dept::getParentId, id)) > 0) {
             throw new BusinessException(409, "请先删除子部门");
         }
-        VersionGuard.updated(deptMapper.delete(new QueryWrapper<Dept>().eq("id", id).eq("version", version)));
+        VersionGuard.updated(deptMapper.delete(new LambdaQueryWrapper<Dept>().eq(Dept::getId, id).eq(Dept::getVersion, version)));
         audit.record("DEPT_DELETE", id);
     }
 

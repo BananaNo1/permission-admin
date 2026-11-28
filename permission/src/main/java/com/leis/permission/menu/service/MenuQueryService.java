@@ -1,7 +1,7 @@
 package com.leis.permission.menu.service;
 
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.leis.permission.menu.entity.Menu;
 import com.leis.permission.menu.mapper.MenuMapper;
 import com.leis.permission.role.entity.RoleMenu;
@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+/**
+ * 根据当前授权构造可见菜单树，并补齐可达的上级节点。
+ */
 @Service
 @RequiredArgsConstructor
 public class MenuQueryService {
@@ -24,7 +27,7 @@ public class MenuQueryService {
      * 按角色授权取出启用的菜单和操作，超级管理员跳过角色关联过滤。
      */
     public List<Menu> grantedMenus(List<Long> roleIds, boolean admin) {
-        var all = menuMapper.selectList(new QueryWrapper<Menu>().orderByAsc("sort_order", "id"));
+        var all = menuMapper.selectList(new LambdaQueryWrapper<Menu>().orderByAsc(Menu::getSortOrder, Menu::getId));
         Set<Long> granted = new HashSet<Long>();
         if (admin) {
             all.forEach(row -> granted.add(row.getId()));
@@ -32,8 +35,8 @@ public class MenuQueryService {
             if (roleIds.isEmpty()) {
                 return List.of();
             }
-            roleMenuMapper.selectList(new QueryWrapper<RoleMenu>()
-                            .in("role_id", roleIds))
+            roleMenuMapper.selectList(new LambdaQueryWrapper<RoleMenu>()
+                            .in(RoleMenu::getRoleId, roleIds))
                     .forEach(row -> granted.add(row.getMenuId()));
         }
         var byId = new HashMap<Long, Menu>();

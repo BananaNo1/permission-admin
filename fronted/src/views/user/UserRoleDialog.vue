@@ -5,7 +5,7 @@ import { listRoles } from '@/api/role'
 import { assignUserRoles, listUserRoleIds } from '@/api/user'
 import type { RoleVO } from '@/types/role'
 import type { UserVO } from '@/types/user'
-import AssignmentReview from '@/views/AssignmentReview.vue'
+import AssignmentReview from '@/components/assignment/AssignmentReview.vue'
 
 const props = defineProps<{ user: UserVO }>()
 const emit = defineEmits<{ saved: []; close: [] }>()
@@ -24,11 +24,11 @@ const selected = computed(() => new Set(ids.value))
 const filtered = computed(() => {
   const query = keyword.value.trim().toLowerCase()
   return roles.value.filter(role => (!selectedOnly.value || selected.value.has(role.id))
-    && [role.name, role.code].some(value => value.toLowerCase().includes(query)))
+      && [role.name, role.code].some(value => value.toLowerCase().includes(query)))
 })
 const bulkIds = computed(() => filtered.value
-  .filter(role => role.status === 'ENABLED' && role.code !== 'SUPER_ADMIN')
-  .map(role => role.id))
+    .filter(role => role.status === 'ENABLED' && role.code !== 'SUPER_ADMIN')
+    .map(role => role.id))
 const labels = computed(() => new Map(roles.value.map(role => [role.id, `${role.name} · ${role.code}`])))
 const entries = (keys: string[]) => keys.map(id => ({ id, label: labels.value.get(id) ?? id }))
 const added = computed(() => entries(ids.value.filter(id => !originalIds.value.includes(id))))
@@ -63,8 +63,10 @@ async function save() {
   try {
     await assignUserRoles(props.user.id, { roleIds: ids.value, version: props.user.version })
     emit('saved')
-  } catch { /* 保留当前选择，由公共请求层显示错误。 */ }
-  finally { busy.value = false }
+  } catch { /* 保留当前选择，由公共请求层显示错误。 */
+  } finally {
+    busy.value = false
+  }
 }
 
 onMounted(load)
@@ -85,13 +87,16 @@ onMounted(load)
     <div v-else class="assignment-grid">
       <section class="assignment-panel" aria-label="角色列表">
         <h3>角色列表</h3>
-        <NInput v-model:value="keyword" clearable placeholder="搜索角色名称或编码" :input-props="{ 'aria-label': '搜索角色' }" />
+        <NInput v-model:value="keyword" clearable placeholder="搜索角色名称或编码"
+                :input-props="{ 'aria-label': '搜索角色' }" />
         <NSpace class="assignment-controls" align="center" :size="8">
           <NCheckbox v-model:checked="selectedOnly">仅看已选</NCheckbox>
           <NButton size="small" :disabled="busy || !bulkIds.some(id => !selected.has(id))"
-                   @click="setSelected(bulkIds, true)">勾选筛选结果</NButton>
+                   @click="setSelected(bulkIds, true)">勾选筛选结果
+          </NButton>
           <NButton size="small" :disabled="busy || !bulkIds.some(id => selected.has(id))"
-                   @click="setSelected(bulkIds, false)">取消筛选结果</NButton>
+                   @click="setSelected(bulkIds, false)">取消筛选结果
+          </NButton>
         </NSpace>
         <p class="assignment-hint">批量操作仅包含筛选结果中的普通启用角色。</p>
         <div class="assignment-list">
@@ -111,9 +116,10 @@ onMounted(load)
     </div>
     <NSpace class="assignment-footer" justify="end">
       <NButton :disabled="busy" @click="emit('close')">取消</NButton>
-      <NButton type="primary" :loading="busy" :disabled="loadState !== 'ready' || !hasChanges" @click="save">保存角色</NButton>
+      <NButton type="primary" :loading="busy" :disabled="loadState !== 'ready' || !hasChanges" @click="save">保存角色
+      </NButton>
     </NSpace>
   </NModal>
 </template>
 
-<style scoped src="@/views/assignment-dialog.css"></style>
+<style scoped src="@/components/assignment/assignment-dialog.css"></style>

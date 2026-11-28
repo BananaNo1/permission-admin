@@ -1,6 +1,6 @@
 package com.leis.permission.role.service;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.leis.common.common.BusinessException;
 import com.leis.permission.auth.PermissionChecker;
 import com.leis.permission.log.service.AuditService;
@@ -20,6 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+/**
+ * 维护角色属性、状态和删除操作，保护内置角色及现有引用。
+ */
 @Service
 @RequiredArgsConstructor
 public class RoleService {
@@ -33,7 +36,7 @@ public class RoleService {
      */
     public List<RoleVO> list() {
         permissionChecker.requireAdmin();
-        return roleMapper.selectList(new QueryWrapper<Role>().orderByDesc("id"))
+        return roleMapper.selectList(new LambdaQueryWrapper<Role>().orderByDesc(Role::getId))
                 .stream().map(RoleVO::from).toList();
     }
 
@@ -95,12 +98,14 @@ public class RoleService {
     public void delete(Long id, Integer version) {
         permissionChecker.requireAdmin();
         Role row = locked(id, version);
-        if (row.getBuiltIn()) throw new BusinessException(400, "内置角色不能删除");
-        if (userRoleMapper.selectCount(new QueryWrapper<UserRole>().eq("role_id", id)) > 0) {
+        if (row.getBuiltIn()) {
+            throw new BusinessException(400, "内置角色不能删除");
+        }
+        if (userRoleMapper.selectCount(new LambdaQueryWrapper<UserRole>().eq(UserRole::getRoleId, id)) > 0) {
             throw new BusinessException(409, "请先解除用户角色关联");
         }
 
-        VersionGuard.updated(roleMapper.delete(new QueryWrapper<Role>().eq("id", id).eq("version", version)));
+        VersionGuard.updated(roleMapper.delete(new LambdaQueryWrapper<Role>().eq(Role::getId, id).eq(Role::getVersion, version)));
         auditService.record("ROLE_DELETE", id);
     }
 

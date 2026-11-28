@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import {computed, ref, watch} from 'vue'
-import {NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NSwitch, NButton} from 'naive-ui'
-import type {MenuVO, MenuCreateRequest} from '@/types/menu'
-import {createMenu, updateMenu} from '@/api/menu'
+import { computed, ref, watch } from 'vue'
+import { NModal, NForm, NFormItem, NInput, NInputNumber, NSelect, NSwitch, NButton } from 'naive-ui'
+import type { MenuVO, MenuCreateRequest } from '@/types/menu'
+import { createMenu, updateMenu } from '@/api/menu'
 
 const props = defineProps<{ menu: MenuVO | null; menus: MenuVO[] }>()
 const emit = defineEmits<{ saved: []; close: [] }>()
@@ -18,7 +18,7 @@ const sortOrder = ref(props.menu?.sortOrder || 0)
 const visible = ref(props.menu?.visible ?? true)
 const status = ref(props.menu?.status || 'ENABLED')
 const busy = ref(false)
-const types = [{label: '目录', value: 'DIRECTORY'}, {label: '页面', value: 'PAGE'}, {label: '按钮', value: 'BUTTON'}]
+const types = [{ label: '目录', value: 'DIRECTORY' }, { label: '页面', value: 'PAGE' }, { label: '按钮', value: 'BUTTON' }]
 const components = ['system/user', 'system/role', 'system/dept', 'system/menu', 'audit/login', 'audit/operation', 'workflow/templates'].map(value => ({
   label: value,
   value
@@ -54,7 +54,7 @@ async function save() {
   }
   busy.value = true
   try {
-    if (props.menu) await updateMenu(props.menu.id, {...body, version: props.menu.version})
+    if (props.menu) await updateMenu(props.menu.id, { ...body, version: props.menu.version })
     else await createMenu(body)
     emit('saved')
   } catch { /* 后端校验父级、后代和页面白名单。 */
@@ -68,41 +68,41 @@ async function save() {
           @update:show="value => { if (!value) emit('close') }">
     <NForm @submit.prevent="save">
       <NFormItem label="名称" required>
-        <NInput v-model:value="name" placeholder="填写业务名称，例如导出用户名单"/>
+        <NInput v-model:value="name" placeholder="填写业务名称，例如导出用户名单" />
       </NFormItem>
       <NFormItem label="用途说明">
         <NInput v-model:value="description" type="textarea" :maxlength="300"
-                :autosize="{ minRows: 2, maxRows: 3 }" placeholder="说明授予后可以执行的业务操作"/>
+                :autosize="{ minRows: 2, maxRows: 3 }" placeholder="说明授予后可以执行的业务操作" />
       </NFormItem>
       <NFormItem label="类型">
-        <NSelect v-model:value="type" :options="types"/>
+        <NSelect v-model:value="type" :options="types" />
       </NFormItem>
       <NFormItem label="父菜单" :required="parentRequired">
         <NSelect v-model:value="parentId" clearable :options="parentOptions"
-                 :placeholder="type === 'BUTTON' ? '请选择页面' : parentRequired ? '请选择目录' : '不选则为根目录'"/>
+                 :placeholder="type === 'BUTTON' ? '请选择页面' : parentRequired ? '请选择目录' : '不选则为根目录'" />
       </NFormItem>
       <NFormItem v-if="type !== 'DIRECTORY'" label="权限标识" required>
-        <NInput v-model:value="permissionCode"/>
+        <NInput v-model:value="permissionCode" />
       </NFormItem>
       <template v-if="type === 'PAGE'">
         <NFormItem label="路由名称" required>
-          <NInput v-model:value="routeName"/>
+          <NInput v-model:value="routeName" />
         </NFormItem>
         <NFormItem label="路由路径" required>
-          <NInput v-model:value="path"/>
+          <NInput v-model:value="path" />
         </NFormItem>
         <NFormItem label="组件键" required>
-          <NSelect v-model:value="componentKey" :options="components"/>
+          <NSelect v-model:value="componentKey" :options="components" />
         </NFormItem>
       </template>
       <NFormItem label="排序">
-        <NInputNumber v-model:value="sortOrder" :min="0"/>
+        <NInputNumber v-model:value="sortOrder" :min="0" />
       </NFormItem>
       <NFormItem label="导航可见">
-        <NSwitch v-model:value="visible"/>
+        <NSwitch v-model:value="visible" />
       </NFormItem>
       <NFormItem label="状态">
-        <NSelect v-model:value="status" :options="[{label:'启用',value:'ENABLED'},{label:'禁用',value:'DISABLED'}]"/>
+        <NSelect v-model:value="status" :options="[{ label: '启用', value: 'ENABLED' }, { label: '禁用', value: 'DISABLED' }]" />
       </NFormItem>
       <NButton attr-type="submit" type="primary" :loading="busy" :disabled="parentRequired && parentId === null">保存</NButton>
     </NForm>

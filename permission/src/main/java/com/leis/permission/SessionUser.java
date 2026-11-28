@@ -9,6 +9,9 @@ import java.io.Serial;
 import java.util.Collection;
 import java.util.List;
 
+/**
+ * 登录成功后保存在会话中的认证主体，记录用户标识和授权版本。
+ */
 public final class SessionUser implements UserDetails, CredentialsContainer {
     @Serial
     private static final long serialVersionUID = 0L;

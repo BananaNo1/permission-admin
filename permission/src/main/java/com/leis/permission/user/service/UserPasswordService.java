@@ -12,6 +12,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * 处理管理员重置密码并推进会话授权版本。
+ */
 @Service
 @RequiredArgsConstructor
 public class UserPasswordService {

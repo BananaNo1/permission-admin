@@ -1,5 +1,5 @@
-import {api} from './http'
-import type {PageResult} from '@/types/common'
+import { api, changesAuthorization } from './http'
+import type { PageResult } from '@/types/common'
 import type {
     UserVO,
     UserCreateRequest,
@@ -12,7 +12,7 @@ import type {
 const root = '/system/users'
 
 export function listUsers(keyword: string, page: number, pageSize: number) {
-    const query = new URLSearchParams({keyword, page: String(page), pageSize: String(pageSize)})
+    const query = new URLSearchParams({ keyword, page: String(page), pageSize: String(pageSize) })
     return api<PageResult<UserVO>>(root + '?' + query)
 }
 
@@ -25,7 +25,7 @@ export function createUser(body: UserCreateRequest) {
 }
 
 export function updateUser(id: string, body: UserUpdateRequest) {
-    return api<UserVO>(root + '/' + id, 'PUT', body)
+    return changesAuthorization(api<UserVO>(root + '/' + id, 'PUT', body))
 }
 
 export function changeUserStatus(id: string, body: UserStatusRequest) {
@@ -37,7 +37,7 @@ export function listUserRoleIds(id: string) {
 }
 
 export function assignUserRoles(id: string, body: UserRoleAssignRequest) {
-    return api<void>(root + '/' + id + '/roles', 'PUT', body)
+    return changesAuthorization(api<void>(root + '/' + id + '/roles', 'PUT', body))
 }
 
 export function resetUserPassword(id: string, body: UserPasswordResetRequest) {

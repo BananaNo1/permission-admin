@@ -2,31 +2,21 @@
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { NAlert, NButton, NCard, NEmpty, NInput, NModal, NSelect, NSpin, NTag } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
-import { api } from '@/api/http'
+import { listWorkflowBusinesses } from '@/api/workflowBusiness'
+import { listWorkflowTemplates } from '@/api/workflowTemplate'
+import type { WorkflowBusiness, TemplateDraft } from '@/types/workflow'
 import { useAuth } from '@/stores/auth'
 import TemplateEditor from './TemplateEditor.vue'
 import BusinessGrants from './BusinessGrants.vue'
 import ApprovalWorkbench from './ApprovalWorkbench.vue'
-import type { DiagramLayout } from './approvalDiagram'
-
-type Business = { code: string; name: string; edit: boolean; publish: boolean; start: boolean }
-type Step = {
-  name: string
-  mode: 'SINGLE' | 'ANY' | 'ALL' | 'SEQUENTIAL'
-  approverIds: number[]
-  minAmount: number | null
-  returnTo: 'APPLICANT' | 'PREVIOUS'
-}
-type Draft = { code: string; name: string; revision: number; publishedVersion: number; dirty: boolean; steps: Step[]; diagramLayout?: DiagramLayout | null }
-
 const auth = useAuth()
 const route = useRoute()
 const router = useRouter()
-const businesses = ref<Business[]>([])
+const businesses = ref<WorkflowBusiness[]>([])
 const selected = ref<string | null>(null)
 const business = computed(() => businesses.value.find(item => item.code === selected.value))
 const options = computed(() => businesses.value.map(item => ({ label: item.name, value: item.code })))
-const drafts = ref<Draft[]>([])
+const drafts = ref<TemplateDraft[]>([])
 const current = ref<string | null>(null)
 const creating = ref(false)
 const draft = computed(() => drafts.value.find(item => item.code === current.value) ?? null)
@@ -49,7 +39,7 @@ async function loadBusinesses(preferred = selected.value) {
   loadingBusinesses.value = true
   try {
     error.value = ''
-    businesses.value = await api<Business[]>('/workflow/businesses')
+    businesses.value = await listWorkflowBusinesses()
     selected.value = businesses.value.find(item => item.code === preferred)?.code ?? businesses.value[0]?.code ?? null
   } catch (e) { error.value = e instanceof Error ? e.message : '业务列表加载失败' }
   finally { loadingBusinesses.value = false }
@@ -75,7 +65,7 @@ async function loadDrafts(preferred?: string) {
   if (!scope || !(scope.edit || scope.publish)) return
   loading.value = true
   try {
-    const items = await api<Draft[]>('/workflow/businesses/' + encodeURIComponent(scope.code) + '/templates')
+    const items = await listWorkflowTemplates(scope.code)
     if (request !== requestId) return
     drafts.value = items
     if (!creating.value) current.value = items.find(item => item.code === preferred)?.code ?? null
@@ -156,7 +146,7 @@ onMounted(() => loadBusinesses(typeof route.query.business === 'string' ? route.
     <NEmpty v-else-if="!business" description="尚未分配业务范围，请联系超级管理员授权" />
     <NEmpty v-else-if="!business.edit && !business.publish" description="当前业务仅授予了发起权限，请联系超级管理员授予编辑权限" />
     <NSpin v-else :show="loading">
-      <TemplateEditor v-if="designing" :key="[business.code,current,draft?.revision].join('/')"
+      <TemplateEditor v-if="designing" :key="[business.code, current, draft?.revision].join('/')"
         :business="business.code" :template="draft" :edit="business.edit" :publish="business.publish"
         @saved="draftSaved" />
       <section v-else class="template-list" aria-label="业务模板">

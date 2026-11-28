@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leis.workflow.access.mapper.BusinessMapper">
+    <resultMap id="business" type="com.leis.workflow.access.BusinessAccess$Business">
+        <constructor>
+            <arg column="code" javaType="string"/>
+            <arg column="name" javaType="string"/>
+            <arg column="can_edit" javaType="_boolean"/>
+            <arg column="can_publish" javaType="_boolean"/>
+            <arg column="can_start" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="rights" type="com.leis.workflow.access.BusinessAccess$Rights">
+        <constructor>
+            <arg column="can_edit" javaType="_boolean"/>
+            <arg column="can_publish" javaType="_boolean"/>
+            <arg column="can_start" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="grant" type="com.leis.workflow.access.BusinessAccess$Grant">
+        <constructor>
+            <arg column="user_id" javaType="_long"/>
+            <arg column="can_edit" javaType="_boolean"/>
+            <arg column="can_publish" javaType="_boolean"/>
+            <arg column="can_start" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <select id="lockCode" resultType="string" flushCache="true" useCache="false">
+        select code from wf_business where code = #{code} for update
+    </select>
+
+    <select id="exists" resultType="boolean">
+        select exists(select 1 from wf_business where code = #{code})
+    </select>
+
+    <select id="findVisible" resultMap="business">
+        select b.code, b.name,
+            (#{admin} or g.can_edit) as can_edit,
+            (#{admin} or g.can_publish) as can_publish,
+            (#{admin} or g.can_start) as can_start
+        from wf_business b
+        left join wf_business_grant g on g.business_code = b.code and g.user_id = #{userId}
+        where #{admin} or g.user_id is not null
+        order by b.code
+    </select>
+
+    <select id="findRights" resultMap="rights">
+        select can_edit, can_publish, can_start
+        from wf_business_grant where business_code = #{code} and user_id = #{userId}
+    </select>
+
+    <select id="findGrants" resultMap="grant">
+        select user_id, can_edit, can_publish, can_start
+        from wf_business_grant where business_code = #{code}
+        order by user_id
+    </select>
+
+    <insert id="insertBusiness">
+        insert into wf_business (code, name) values (#{code}, #{name})
+    </insert>
+
+    <update id="updateGrant">
+        update wf_business_grant
+        set can_edit = #{rights.edit}, can_publish = #{rights.publish}, can_start = #{rights.start}
+        where business_code = #{code} and user_id = #{userId}
+    </update>
+
+    <insert id="insertGrant">
+        insert into wf_business_grant (business_code, user_id, can_edit, can_publish, can_start)
+        select #{code}, id, #{rights.edit}, #{rights.publish}, #{rights.start}
+        from sys_user where id = #{userId}
+    </insert>
+
+    <delete id="deleteGrant">
+        delete from wf_business_grant where business_code = #{code} and user_id = #{userId}
+    </delete>
+</mapper>

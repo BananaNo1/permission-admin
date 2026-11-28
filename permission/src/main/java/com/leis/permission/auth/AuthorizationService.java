@@ -16,6 +16,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * 根据会话用户、账号状态和角色配置计算本次请求的权限与数据范围。
+ */
 @Service
 @RequiredArgsConstructor
 public class AuthorizationService {

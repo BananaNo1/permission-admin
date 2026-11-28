@@ -1,5 +1,6 @@
 package com.leis.permission.log.controller;
 
+import com.leis.common.common.ApiResponse;
 
 import com.leis.common.common.PageResult;
 import com.leis.permission.log.service.LogQueryService;
@@ -10,6 +11,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 提供操作审计记录的分页查询接口。
+ */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/audit/operation-logs")
@@ -21,8 +25,8 @@ public class OperationLogController {
      * 分页查询操作审计记录。
      */
     @GetMapping
-    public PageResult<OperationLogVO> list(@RequestParam(defaultValue = "1") int page,
+    public ApiResponse<PageResult<OperationLogVO>> list(@RequestParam(defaultValue = "1") int page,
                                            @RequestParam(defaultValue = "20") int pageSize) {
-        return service.operationLogs(page, pageSize);
+        return ApiResponse.ok(service.operationLogs(page, pageSize));
     }
 }

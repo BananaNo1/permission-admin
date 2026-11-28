@@ -7,6 +7,9 @@ import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerIntercept
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * 配置持久层使用的 MyBatis-Plus 拦截器。
+ */
 @Configuration
 public class DatabaseConfig {
 

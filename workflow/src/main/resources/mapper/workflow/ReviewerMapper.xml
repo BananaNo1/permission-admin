@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.leis.workflow.template.mapper.ReviewerMapper">
+    <resultMap id="reviewer" type="com.leis.workflow.template.ReviewerDirectory$Reviewer">
+        <constructor>
+            <arg column="id" javaType="_long"/>
+            <arg column="nickname" javaType="string"/>
+            <arg column="username" javaType="string"/>
+            <arg column="enabled" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="reviewerColumns">
+        select id, nickname, username, (status = 'ENABLED') as enabled from sys_user
+    </sql>
+
+    <select id="findByIds" resultMap="reviewer">
+        <include refid="reviewerColumns"/>
+        where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        order by nickname, username, id
+    </select>
+
+    <select id="searchEnabled" resultMap="reviewer">
+        <include refid="reviewerColumns"/>
+        where status = 'ENABLED'
+          and (position(lower(#{keyword}) in lower(nickname)) > 0
+            or position(lower(#{keyword}) in lower(username)) > 0)
+        order by nickname, username, id
+        limit 30
+    </select>
+
+    <resultMap id="roleOption" type="com.leis.workflow.template.ReviewerDirectory$RoleOption">
+        <constructor>
+            <arg column="id" javaType="string"/>
+            <arg column="name" javaType="string"/>
+            <arg column="code" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <select id="roles" resultMap="roleOption">
+        select cast(id as varchar) as id, name, code from sys_role where status = 'ENABLED'
+        order by name, id
+    </select>
+
+    <select id="activeRoleMembers" resultType="long">
+        select u.id
+        from sys_user_role ur
+        join sys_user u on u.id = ur.user_id
+        join sys_role r on r.id = ur.role_id
+        where r.id = #{roleId} and r.status = 'ENABLED' and u.status = 'ENABLED'
+          and u.id &lt;&gt; #{applicantId}
+        order by u.id
+        limit 51
+    </select>
+
+    <select id="roleEnabled" resultType="boolean">
+        select exists(select 1 from sys_role where id = #{roleId} and status = 'ENABLED')
+    </select>
+</mapper>
